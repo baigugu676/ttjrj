@@ -1,0 +1,94 @@
+// 应用入口：管理全局登录态，提供登录/退出等通用方法
+const api = require('./utils/api.js');
+
+App({
+  globalData: {
+    token: '',      // 登录令牌
+    userInfo: null  // 当前登录用户信息 { id, real_name, role, avatar_url, phone, ... }
+  },
+
+  onLaunch() {
+    // 启动时从本地缓存恢复登录态
+    this.globalData.token = wx.getStorageSync('token') || '';
+    this.globalData.userInfo = wx.getStorageSync('userInfo') || null;
+  },
+
+  // 保存登录信息（同时写入 globalData 与 Storage）
+  setLoginInfo(token, userInfo) {
+    this.globalData.token = token;
+    this.globalData.userInfo = userInfo;
+    wx.setStorageSync('token', token);
+    wx.setStorageSync('userInfo', userInfo);
+  },
+
+  // 检查登录状态：无 token 或已过期则自动跳转登录页
+  checkLogin() {
+    if (this.globalData.token) return true;
+    wx.reLaunch({ url: '/pages/login/login' });
+    return false;
+  },
+
+  // 获取当前用户信息
+  getUserInfo() {
+    return this.globalData.userInfo;
+  },
+
+  // 获取当前角色：user(报修用户) / repairer(维修人员) / admin(管理员)
+  getRole() {
+    const info = this.globalData.userInfo;
+    return info ? info.role : '';
+  },
+
+  // 账号密码登录：POST /auth/login
+  login(username, password) {
+    return api.post('/auth/login', { username, password }, { loading: false }).then((data) => {
+      const token = data && (data.token || data.accessToken);
+      const userInfo = data && (data.userInfo || data.user);
+      if (!token || !userInfo) {
+        throw new Error('登录失败：后端返回数据不完整');
+      }
+      this.setLoginInfo(token, userInfo);
+      return userInfo;
+    });
+  },
+
+  // 微信一键登录：wx.login 获取 code 后调用后端（如后端仅支持账号密码，会提示改用账号登录）
+  wxLogin(profile) {
+    return new Promise((resolve, reject) => {
+      wx.login({
+        success: (res) => {
+          if (!res.code) {
+            reject(new Error('获取微信登录凭证失败'));
+            return;
+          }
+          api.post('/auth/login', {
+            code: res.code,
+            nickname: (profile && profile.nickName) || '微信用户',
+            avatar: (profile && profile.avatarUrl) || ''
+          }, { loading: false }).then((data) => {
+            const token = data && (data.token || data.accessToken);
+            const userInfo = data && (data.userInfo || data.user);
+            if (!token || !userInfo) {
+              reject(new Error('微信登录失败，请改用账号密码登录'));
+              return;
+            }
+            this.setLoginInfo(token, userInfo);
+            resolve(userInfo);
+          }).catch((err) => {
+            reject(err);
+          });
+        },
+        fail: () => reject(new Error('微信登录失败，请重试'))
+      });
+    });
+  },
+
+  // 退出登录：清空本地登录态并跳转登录页
+  logout() {
+    this.globalData.token = '';
+    this.globalData.userInfo = null;
+    wx.removeStorageSync('token');
+    wx.removeStorageSync('userInfo');
+    wx.reLaunch({ url: '/pages/login/login' });
+  }
+});

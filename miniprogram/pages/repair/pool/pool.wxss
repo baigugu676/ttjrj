@@ -1,0 +1,55 @@
+/* 待维修工单池样式 */
+.list {
+  padding: 24rpx;
+}
+.pool-card {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+.pool-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.pool-location {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+}
+.pool-desc {
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.5;
+  margin: 16rpx 0;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.pool-info {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 20rpx;
+}
+.pool-no {
+  font-size: 24rpx;
+  color: #BBBBBB;
+}
+.pool-time {
+  font-size: 24rpx;
+  color: #999999;
+}
+.accept-btn {
+  height: 76rpx;
+  line-height: 76rpx;
+  font-size: 30rpx;
+}
+.load-more {
+  text-align: center;
+  font-size: 24rpx;
+  color: #999999;
+  padding: 20rpx 0;
+}

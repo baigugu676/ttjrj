@@ -1,0 +1,20 @@
+<!-- 待维修工单池：待接单工单列表 + 接单按钮 -->
+<view class="page">
+  <view class="list">
+    <view class="pool-card" wx:for="{{list}}" wx:key="id">
+      <view class="pool-top">
+        <view class="pool-location">{{item.location_name || '未知点位'}}</view>
+        <view class="status-tag pending_repair">待维修</view>
+      </view>
+      <view class="pool-desc">{{item.fault_description}}</view>
+      <view class="pool-info">
+        <text class="pool-no">{{item.order_no}}</text>
+        <text class="pool-time">{{item.created_at_text}}</text>
+      </view>
+      <button class="btn btn-primary accept-btn" bindtap="onAccept" data-id="{{item.id}}">接 单</button>
+    </view>
+
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无可接的工单，稍后再来看看</view>
+    <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+</view>

@@ -1,0 +1,24 @@
+# Dependencies
+node_modules/
+
+# Environment / secrets
+.env
+.env.local
+
+# Uploaded files (runtime data)
+backend/uploads/
+uploads/
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS / editor
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+
+# 微信开发者工具
+miniprogram/dist/
+project.private.config.json

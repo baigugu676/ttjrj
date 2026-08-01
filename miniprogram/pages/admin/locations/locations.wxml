@@ -1,0 +1,42 @@
+<!-- 点位管理（管理员）：点位列表 + 添加/编辑弹窗 + 删除 -->
+<view class="page">
+  <view class="list">
+    <view class="loc-card" wx:for="{{list}}" wx:key="id">
+      <view class="loc-info">
+        <view class="loc-name">{{item.name}}</view>
+        <view class="loc-sub">{{item.area || '未分区'}} · {{item.device_type || '未分类设备'}}</view>
+      </view>
+      <view class="loc-ops">
+        <view class="op-btn edit" catchtap="editLocation" data-id="{{item.id}}">编辑</view>
+        <view class="op-btn delete" catchtap="deleteLocation" data-id="{{item.id}}">删除</view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无点位，点击下方按钮添加</view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="fab" bindtap="openAdd">＋ 添加点位</view>
+
+  <!-- 添加/编辑弹窗 -->
+  <view class="mask" wx:if="{{showModal}}" bindtap="closeModal"></view>
+  <view class="modal" wx:if="{{showModal}}">
+    <view class="modal-title">{{modalTitle}}</view>
+    <view class="form-item">
+      <text class="form-label">点位名称 <text class="form-required">*</text></text>
+      <input class="form-input" placeholder="如：3号楼道摄像头-01" value="{{form.name}}" bindinput="onFormInput" data-field="name" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">所属区域</text>
+      <input class="form-input" placeholder="如：3号楼" value="{{form.area}}" bindinput="onFormInput" data-field="area" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">设备类型</text>
+      <input class="form-input" placeholder="如：摄像头" value="{{form.device_type}}" bindinput="onFormInput" data-field="device_type" />
+    </view>
+    <view class="modal-btns">
+      <button class="btn btn-default modal-btn" bindtap="closeModal">取消</button>
+      <button class="btn btn-primary modal-btn" bindtap="saveLocation" loading="{{saving}}">保存</button>
+    </view>
+  </view>
+</view>

@@ -1,0 +1,20 @@
+<!-- 我的维修任务：维修中 / 待验收 / 已完成 -->
+<view class="page">
+  <view class="tabs">
+    <view class="tab {{tab === item.value ? 'active' : ''}}"
+      wx:for="{{tabs}}" wx:key="value" bindtap="onTabChange" data-value="{{item.value}}">
+      {{item.label}}
+    </view>
+  </view>
+
+  <view class="list">
+    <view class="task-item" wx:for="{{list}}" wx:key="id">
+      <order-card order="{{item}}" bind:tap="goDetail" />
+      <button class="btn btn-primary enter-btn" wx:if="{{tab === 'repairing'}}" bindtap="goExecute" data-id="{{item.id}}">
+        进入维修
+      </button>
+    </view>
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无相关工单</view>
+    <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+</view>

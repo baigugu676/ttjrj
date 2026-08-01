@@ -1,0 +1,72 @@
+/* 我的页面样式 */
+.profile {
+  display: flex;
+  align-items: center;
+  background: linear-gradient(135deg, #07C160, #10D16F);
+  padding: 60rpx 40rpx;
+  border-radius: 0 0 32rpx 32rpx;
+}
+.avatar {
+  width: 120rpx;
+  height: 120rpx;
+  border-radius: 50%;
+  background: #FFFFFF;
+  border: 4rpx solid rgba(255, 255, 255, 0.6);
+  flex-shrink: 0;
+}
+.avatar.default {
+  color: #07C160;
+  text-align: center;
+  line-height: 120rpx;
+  font-size: 52rpx;
+  font-weight: 600;
+}
+.profile-info {
+  margin-left: 28rpx;
+}
+.name {
+  font-size: 38rpx;
+  font-weight: 600;
+  color: #FFFFFF;
+}
+.role-tag {
+  display: inline-block;
+  margin-top: 12rpx;
+  font-size: 22rpx;
+  color: #FFFFFF;
+  background: rgba(255, 255, 255, 0.25);
+  padding: 4rpx 20rpx;
+  border-radius: 20rpx;
+}
+
+.menu {
+  padding: 8rpx 28rpx;
+}
+.menu-item {
+  display: flex;
+  align-items: center;
+  padding: 30rpx 8rpx;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.menu-item:last-child {
+  border-bottom: none;
+}
+.menu-icon {
+  font-size: 36rpx;
+  margin-right: 20rpx;
+}
+.menu-text {
+  flex: 1;
+  font-size: 30rpx;
+  color: #333333;
+}
+
+.logout-btn {
+  margin: 60rpx 48rpx 0;
+}
+.version {
+  text-align: center;
+  font-size: 24rpx;
+  color: #BBBBBB;
+  margin-top: 60rpx;
+}

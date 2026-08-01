@@ -1,0 +1,72 @@
+<!-- 我的：个人信息 + 按角色显示功能菜单 + 退出登录 -->
+<view class="page">
+  <!-- 个人信息 -->
+  <view class="profile">
+    <image class="avatar" wx:if="{{userInfo.avatar_url || userInfo.avatar}}" src="{{userInfo.avatar_url || userInfo.avatar}}" mode="aspectFill"></image>
+    <view class="avatar default" wx:else>{{(userInfo.real_name || userInfo.username || '用')[0]}}</view>
+    <view class="profile-info">
+      <view class="name">{{userInfo.real_name || userInfo.username || '用户'}}</view>
+      <view class="role-tag">{{roleText}}</view>
+    </view>
+  </view>
+
+  <!-- 功能菜单（按角色） -->
+  <view class="card menu">
+    <!-- 报修用户 -->
+    <block wx:if="{{role === 'user'}}">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/list">
+        <text class="menu-icon">📋</text>
+        <text class="menu-text">我的报修</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/create">
+        <text class="menu-icon">➕</text>
+        <text class="menu-text">新建报修</text>
+        <text class="arrow">›</text>
+      </view>
+    </block>
+
+    <!-- 维修人员 -->
+    <block wx:elif="{{role === 'repairer'}}">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/mytasks">
+        <text class="menu-icon">🔧</text>
+        <text class="menu-text">维修记录</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/pool">
+        <text class="menu-icon">🗂️</text>
+        <text class="menu-text">待接单工单池</text>
+        <text class="arrow">›</text>
+      </view>
+    </block>
+
+    <!-- 管理员 -->
+    <block wx:else>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/orders">
+        <text class="menu-icon">🗂️</text>
+        <text class="menu-text">工单管理</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/users">
+        <text class="menu-icon">👥</text>
+        <text class="menu-text">用户管理</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/locations">
+        <text class="menu-icon">📍</text>
+        <text class="menu-text">点位管理</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/statistics">
+        <text class="menu-icon">📊</text>
+        <text class="menu-text">数据统计</text>
+        <text class="arrow">›</text>
+      </view>
+    </block>
+  </view>
+
+  <!-- 退出登录 -->
+  <button class="btn btn-danger logout-btn" bindtap="onLogout">退出登录</button>
+
+  <view class="version">设备报修维修系统 v1.0.0</view>
+</view>

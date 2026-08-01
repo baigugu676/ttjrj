@@ -1,0 +1,5 @@
+{
+  "navigationBarTitleText": "待维修工单池",
+  "enablePullDownRefresh": true,
+  "onReachBottomDistance": 100
+}

@@ -1,0 +1,103 @@
+/* 数据统计看板样式 */
+.stats-grid {
+  display: flex;
+  flex-wrap: wrap;
+  padding: 24rpx 24rpx 0;
+}
+.stat-card {
+  width: 50%;
+  box-sizing: border-box;
+  padding: 8rpx;
+}
+.stat-inner {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+  padding: 32rpx 0 24rpx;
+}
+.stat-card .num {
+  text-align: center;
+  font-size: 48rpx;
+  font-weight: 600;
+  color: #07C160;
+}
+.stat-card .label {
+  text-align: center;
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 8rpx;
+}
+
+/* 状态分布条形图 */
+.bar-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.bar-label {
+  width: 110rpx;
+  flex-shrink: 0;
+  font-size: 24rpx;
+  color: #666666;
+}
+.bar-track {
+  flex: 1;
+  height: 28rpx;
+  background: #F2F3F5;
+  border-radius: 14rpx;
+  overflow: hidden;
+  margin: 0 16rpx;
+}
+.bar-fill {
+  height: 100%;
+  border-radius: 14rpx;
+  transition: width 0.3s;
+}
+.bar-num {
+  width: 60rpx;
+  text-align: right;
+  font-size: 24rpx;
+  color: #333333;
+  font-weight: 600;
+}
+
+/* 排行列表 */
+.rank-row {
+  display: flex;
+  align-items: center;
+  padding: 16rpx 0;
+  border-bottom: 1rpx solid #F5F5F5;
+}
+.rank-row:last-child {
+  border-bottom: none;
+}
+.rank-no {
+  width: 44rpx;
+  height: 44rpx;
+  line-height: 44rpx;
+  text-align: center;
+  background: #F2F3F5;
+  color: #666666;
+  border-radius: 8rpx;
+  font-size: 24rpx;
+  margin-right: 20rpx;
+  flex-shrink: 0;
+}
+.rank-no.top {
+  background: #07C160;
+  color: #FFFFFF;
+}
+.rank-name {
+  flex: 1;
+  font-size: 26rpx;
+  color: #333333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.rank-count {
+  font-size: 26rpx;
+  color: #07C160;
+  font-weight: 600;
+  margin-left: 16rpx;
+}

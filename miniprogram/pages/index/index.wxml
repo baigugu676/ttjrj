@@ -1,0 +1,155 @@
+<!-- 首页：按角色动态展示（报修用户 / 维修人员 / 管理员） -->
+<view class="page">
+
+  <!-- ============ 报修用户首页 ============ -->
+  <block wx:if="{{role === 'user'}}">
+    <view class="hero">
+      <view class="hero-title">您好，{{userInfo.real_name || userInfo.username || '报修用户'}}</view>
+      <view class="hero-sub">遇到设备故障？立即报修，快速处理</view>
+      <button class="btn btn-light new-btn" bindtap="goCreate">➕ 新建报修</button>
+    </view>
+
+    <view class="stats">
+      <view class="stat-item" bindtap="goList" data-status="pending_review">
+        <view class="num">{{stats.pendingReview || 0}}</view>
+        <view class="label">待审核</view>
+      </view>
+      <view class="stat-item" bindtap="goList" data-status="pending_repair">
+        <view class="num">{{stats.pendingRepair || 0}}</view>
+        <view class="label">待维修</view>
+      </view>
+      <view class="stat-item" bindtap="goList" data-status="repairing">
+        <view class="num">{{stats.repairing || 0}}</view>
+        <view class="label">维修中</view>
+      </view>
+      <view class="stat-item" bindtap="goList" data-status="completed">
+        <view class="num">{{stats.completed || 0}}</view>
+        <view class="label">已完成</view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">最近报修</text>
+        <text class="more" bindtap="goList">全部 ›</text>
+      </view>
+      <order-card wx:for="{{recentOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <view class="empty" wx:if="{{!recentOrders.length}}">暂无报修记录，点击「新建报修」发起第一条吧</view>
+    </view>
+  </block>
+
+  <!-- ============ 维修人员首页 ============ -->
+  <block wx:elif="{{role === 'repairer'}}">
+    <view class="hero">
+      <view class="hero-title">您好，{{userInfo.real_name || userInfo.username || '维修人员'}}</view>
+      <view class="hero-sub">待接单、维修中，一手掌握</view>
+    </view>
+
+    <view class="stats">
+      <view class="stat-item" bindtap="goPool">
+        <view class="num">{{stats.pendingAccept || 0}}</view>
+        <view class="label">待接单</view>
+      </view>
+      <view class="stat-item" bindtap="goMyTasks">
+        <view class="num">{{stats.repairing || 0}}</view>
+        <view class="label">维修中</view>
+      </view>
+      <view class="stat-item">
+        <view class="num">{{stats.todayCompleted || 0}}</view>
+        <view class="label">今日完成</view>
+      </view>
+    </view>
+
+    <view class="quick-row">
+      <view class="quick-item" bindtap="goPool">
+        <view class="quick-title">待接单工单池</view>
+        <view class="badge" wx:if="{{stats.pendingAccept}}">{{stats.pendingAccept}}</view>
+      </view>
+      <view class="quick-item" bindtap="goMyTasks">
+        <view class="quick-title">我的维修任务</view>
+        <view class="badge" wx:if="{{stats.repairing}}">{{stats.repairing}}</view>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">待接单工单</text>
+        <text class="more" bindtap="goPool">进入工单池 ›</text>
+      </view>
+      <order-card wx:for="{{poolOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <view class="empty" wx:if="{{!poolOrders.length}}">暂无可接的工单</view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">维修中工单</text>
+        <text class="more" bindtap="goMyTasks">全部 ›</text>
+      </view>
+      <order-card wx:for="{{repairingOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <view class="empty" wx:if="{{!repairingOrders.length}}">暂无维修中的工单</view>
+    </view>
+  </block>
+
+  <!-- ============ 管理员首页 ============ -->
+  <block wx:else>
+    <view class="hero">
+      <view class="hero-title">您好，{{userInfo.real_name || userInfo.username || '管理员'}}</view>
+      <view class="hero-sub">工单审核、验收、统计一览</view>
+    </view>
+
+    <view class="stats">
+      <view class="stat-item" bindtap="goAdminOrders" data-status="pending_review">
+        <view class="num">{{stats.pendingReview || 0}}</view>
+        <view class="label">待审核</view>
+      </view>
+      <view class="stat-item" bindtap="goAdminOrders" data-status="pending_repair">
+        <view class="num">{{stats.pendingRepair || 0}}</view>
+        <view class="label">待维修</view>
+      </view>
+      <view class="stat-item" bindtap="goAdminOrders" data-status="pending_accept">
+        <view class="num">{{stats.pendingAccept || 0}}</view>
+        <view class="label">待验收</view>
+      </view>
+      <view class="stat-item">
+        <view class="num">{{stats.monthCompleted || 0}}</view>
+        <view class="label">本月完成</view>
+      </view>
+    </view>
+
+    <view class="quick-grid">
+      <view class="quick-cell" bindtap="goAdminOrders" data-status="pending_review">
+        <text class="quick-icon">📋</text>
+        <text class="quick-label">待审核</text>
+      </view>
+      <view class="quick-cell" bindtap="goAdminOrders" data-status="pending_accept">
+        <text class="quick-icon">✅</text>
+        <text class="quick-label">待验收</text>
+      </view>
+      <view class="quick-cell" bindtap="goUsers">
+        <text class="quick-icon">👥</text>
+        <text class="quick-label">用户管理</text>
+      </view>
+      <view class="quick-cell" bindtap="goStats">
+        <text class="quick-icon">📊</text>
+        <text class="quick-label">数据统计</text>
+      </view>
+      <view class="quick-cell" bindtap="goLocations">
+        <text class="quick-icon">📍</text>
+        <text class="quick-label">点位管理</text>
+      </view>
+      <view class="quick-cell" bindtap="goAdminOrders">
+        <text class="quick-icon">🗂️</text>
+        <text class="quick-label">全部工单</text>
+      </view>
+    </view>
+
+    <view class="section">
+      <view class="section-head">
+        <text class="section-title">最新工单动态</text>
+        <text class="more" bindtap="goAdminOrders">全部 ›</text>
+      </view>
+      <order-card wx:for="{{latestOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <view class="empty" wx:if="{{!latestOrders.length}}">暂无工单</view>
+    </view>
+  </block>
+</view>

@@ -1,0 +1,7 @@
+{
+  "navigationBarTitleText": "报修详情",
+  "usingComponents": {
+    "order-card": "/components/order-card/order-card",
+    "timeline": "/components/timeline/timeline"
+  }
+}

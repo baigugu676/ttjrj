@@ -1,0 +1,15 @@
+/* 新建报修页样式 */
+.form-card {
+  margin-top: 24rpx;
+}
+.upload-tip {
+  font-size: 24rpx;
+  color: #07C160;
+  margin-top: 8rpx;
+}
+.submit-area {
+  padding: 32rpx 48rpx;
+}
+.submit-btn {
+  width: 100%;
+}
