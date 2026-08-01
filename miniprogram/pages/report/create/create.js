@@ -3,8 +3,8 @@
 //   1. 先 POST /api/orders 创建工单，拿到工单 id
 //   2. 再逐张上传照片（image_type=report，携带 order_id），由后端写入 order_images 表
 //   3. 全部完成 → 跳转列表页
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -115,7 +115,7 @@ Page({
       wx.hideLoading();
       wx.showToast({ title: '报修提交成功', icon: 'success' });
       setTimeout(() => {
-        wx.switchTab({ url: '/pages/report/list' });
+        wx.switchTab({ url: '/pages/report/list/list' });
       }, 1200);
     }).catch((err) => {
       wx.hideLoading();

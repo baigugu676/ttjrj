@@ -1,5 +1,5 @@
 // 点位管理（管理员）：点位列表 + 添加/编辑（弹窗）+ 删除
-const api = require('../../utils/api.js');
+const api = require('../../../utils/api.js');
 
 Page({
   data: {

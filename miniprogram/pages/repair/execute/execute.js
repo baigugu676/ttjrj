@@ -3,8 +3,8 @@
 //   1. 上传维修前/后照片（order_id + image_type: repair_before / repair_after）
 //   2. 调用 PUT /api/orders/:id/repair 提交维修记录
 //   3. 成功后跳转回任务列表
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -214,7 +214,7 @@ Page({
         if (pages.length > 1) {
           wx.navigateBack();
         } else {
-          wx.redirectTo({ url: '/pages/repair/mytasks' });
+          wx.redirectTo({ url: '/pages/repair/mytasks/mytasks' });
         }
       }, 1200);
     } catch (err) {

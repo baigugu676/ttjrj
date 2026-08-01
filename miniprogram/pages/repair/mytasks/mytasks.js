@@ -1,5 +1,5 @@
 // 我的维修任务（维修人员）：维修中 / 待验收 / 已完成，点击"进入维修"跳转维修执行页
-const api = require('../../utils/api.js');
+const api = require('../../../utils/api.js');
 
 Page({
   data: {
@@ -89,12 +89,12 @@ Page({
 
   // 查看工单详情
   goDetail(e) {
-    wx.navigateTo({ url: '/pages/report/detail?id=' + e.detail.id });
+    wx.navigateTo({ url: '/pages/report/detail/detail?id=' + e.detail.id });
   },
 
   // 进入维修执行页
   goExecute(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: '/pages/repair/execute?id=' + id });
+    wx.navigateTo({ url: '/pages/repair/execute/execute?id=' + id });
   }
 });

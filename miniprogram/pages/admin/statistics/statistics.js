@@ -1,7 +1,7 @@
 // 数据统计看板（管理员）：概览 + 状态分布 + 点位排行 + 维修工作量
 // 数据字段与后端 /api/statistics/* 对齐后，统一归一化为展示字段
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {

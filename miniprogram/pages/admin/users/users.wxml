@@ -12,7 +12,7 @@
   <view class="list">
     <view class="user-row" wx:for="{{list}}" wx:key="id">
       <image class="u-avatar" wx:if="{{item.avatar_url || item.avatar}}" src="{{item.avatar_url || item.avatar}}" mode="aspectFill"></image>
-      <view class="u-avatar default" wx:else>{{(item.real_name || item.username || '用')[0]}}</view>
+      <view class="u-avatar default" wx:else>{{item.initial}}</view>
       <view class="u-info">
         <view class="u-name">
           {{item.real_name || item.username || '未知用户'}}

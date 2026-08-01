@@ -1,6 +1,6 @@
 // 待维修工单池（维修人员）：status=pending_repair 的工单列表 + 接单
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {

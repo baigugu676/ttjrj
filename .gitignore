@@ -22,3 +22,4 @@ Thumbs.db
 # 微信开发者工具
 miniprogram/dist/
 project.private.config.json
+.vs/

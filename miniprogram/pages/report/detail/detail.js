@@ -1,6 +1,6 @@
 // 报修工单详情：基本信息 + 照片 + 时间线
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {

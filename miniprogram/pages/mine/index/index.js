@@ -1,11 +1,12 @@
 // 我的（个人中心）：按角色显示功能菜单，退出登录
-const util = require('../../utils/util.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
     userInfo: {},
     role: '',
-    roleText: ''
+    roleText: '',
+    initial: ''
   },
 
   onShow() {
@@ -15,7 +16,8 @@ Page({
     this.setData({
       userInfo,
       role: userInfo.role || '',
-      roleText: util.getRoleText(userInfo.role)
+      roleText: util.getRoleText(userInfo.role),
+      initial: (userInfo.real_name || userInfo.username || '用')[0]
     });
   },
 
@@ -23,7 +25,7 @@ Page({
   goPage(e) {
     const url = e.currentTarget.dataset.url;
     // 工单列表是 tabBar 页面，使用 switchTab
-    if (url === '/pages/report/list') {
+    if (url === '/pages/report/list/list') {
       wx.switchTab({ url });
     } else {
       wx.navigateTo({ url });

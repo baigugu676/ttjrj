@@ -2,18 +2,18 @@
   "pages": [
     "pages/login/login",
     "pages/index/index",
-    "pages/report/create",
-    "pages/report/list",
-    "pages/report/detail",
-    "pages/repair/pool",
-    "pages/repair/mytasks",
-    "pages/repair/execute",
-    "pages/admin/orders",
-    "pages/admin/order-detail",
-    "pages/admin/statistics",
-    "pages/admin/users",
-    "pages/admin/locations",
-    "pages/mine/index"
+    "pages/report/create/create",
+    "pages/report/list/list",
+    "pages/report/detail/detail",
+    "pages/repair/pool/pool",
+    "pages/repair/mytasks/mytasks",
+    "pages/repair/execute/execute",
+    "pages/admin/orders/orders",
+    "pages/admin/order-detail/order-detail",
+    "pages/admin/statistics/statistics",
+    "pages/admin/users/users",
+    "pages/admin/locations/locations",
+    "pages/mine/index/index"
   ],
   "window": {
     "navigationBarBackgroundColor": "#07C160",
@@ -33,11 +33,11 @@
         "text": "首页"
       },
       {
-        "pagePath": "pages/report/list",
+        "pagePath": "pages/report/list/list",
         "text": "工单"
       },
       {
-        "pagePath": "pages/mine/index",
+        "pagePath": "pages/mine/index/index",
         "text": "我的"
       }
     ]

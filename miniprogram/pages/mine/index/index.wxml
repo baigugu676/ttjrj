@@ -3,7 +3,7 @@
   <!-- 个人信息 -->
   <view class="profile">
     <image class="avatar" wx:if="{{userInfo.avatar_url || userInfo.avatar}}" src="{{userInfo.avatar_url || userInfo.avatar}}" mode="aspectFill"></image>
-    <view class="avatar default" wx:else>{{(userInfo.real_name || userInfo.username || '用')[0]}}</view>
+    <view class="avatar default" wx:else>{{initial}}</view>
     <view class="profile-info">
       <view class="name">{{userInfo.real_name || userInfo.username || '用户'}}</view>
       <view class="role-tag">{{roleText}}</view>
@@ -14,12 +14,12 @@
   <view class="card menu">
     <!-- 报修用户 -->
     <block wx:if="{{role === 'user'}}">
-      <view class="menu-item" bindtap="goPage" data-url="/pages/report/list">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/list/list">
         <text class="menu-icon">📋</text>
         <text class="menu-text">我的报修</text>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item" bindtap="goPage" data-url="/pages/report/create">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/create/create">
         <text class="menu-icon">➕</text>
         <text class="menu-text">新建报修</text>
         <text class="arrow">›</text>
@@ -28,12 +28,12 @@
 
     <!-- 维修人员 -->
     <block wx:elif="{{role === 'repairer'}}">
-      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/mytasks">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/mytasks/mytasks">
         <text class="menu-icon">🔧</text>
         <text class="menu-text">维修记录</text>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/pool">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/pool/pool">
         <text class="menu-icon">🗂️</text>
         <text class="menu-text">待接单工单池</text>
         <text class="arrow">›</text>
@@ -42,22 +42,22 @@
 
     <!-- 管理员 -->
     <block wx:else>
-      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/orders">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/orders/orders">
         <text class="menu-icon">🗂️</text>
         <text class="menu-text">工单管理</text>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/users">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/users/users">
         <text class="menu-icon">👥</text>
         <text class="menu-text">用户管理</text>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/locations">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/locations/locations">
         <text class="menu-icon">📍</text>
         <text class="menu-text">点位管理</text>
         <text class="arrow">›</text>
       </view>
-      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/statistics">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/admin/statistics/statistics">
         <text class="menu-icon">📊</text>
         <text class="menu-text">数据统计</text>
         <text class="arrow">›</text>

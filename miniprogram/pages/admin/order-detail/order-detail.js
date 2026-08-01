@@ -1,6 +1,6 @@
 // 工单详情（管理员）：完整展示报修/审核/维修信息，维修前后对比，审核与验收操作
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {

@@ -1,6 +1,6 @@
 // 工单管理（管理员）：状态筛选 + 搜索 + 按状态显示操作按钮（审核/验收/查看）
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 // 操作按钮文案映射
 const ACTION_MAP = {
@@ -124,12 +124,12 @@ Page({
   // 操作按钮：全部进入工单详情（审核/验收在详情页进行）
   doAction(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: '/pages/admin/order-detail?id=' + id });
+    wx.navigateTo({ url: '/pages/admin/order-detail/order-detail?id=' + id });
   },
 
   // 点击行查看详情
   goDetail(e) {
     const id = e.currentTarget.dataset.id;
-    wx.navigateTo({ url: '/pages/admin/order-detail?id=' + id });
+    wx.navigateTo({ url: '/pages/admin/order-detail/order-detail?id=' + id });
   }
 });

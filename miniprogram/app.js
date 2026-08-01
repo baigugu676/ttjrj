@@ -22,9 +22,14 @@ App({
   },
 
   // 检查登录状态：无 token 或已过期则自动跳转登录页
+  // 注意：当前已在登录页时不能再 reLaunch，否则会自我重定向死循环导致白屏
   checkLogin() {
     if (this.globalData.token) return true;
-    wx.reLaunch({ url: '/pages/login/login' });
+    const pages = getCurrentPages();
+    const route = pages.length ? pages[pages.length - 1].route : '';
+    if (route !== 'pages/login/login') {
+      wx.reLaunch({ url: '/pages/login/login' });
+    }
     return false;
   },
 

@@ -1,6 +1,6 @@
 // 用户管理（管理员）：角色筛选、列表、添加/编辑（弹窗表单）、禁用/启用
-const api = require('../../utils/api.js');
-const util = require('../../utils/util.js');
+const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -82,7 +82,8 @@ Page({
   // 补充角色中文
   decorate(rows) {
     return rows.map((u) => Object.assign({}, u, {
-      role_text: util.getRoleText(u.role)
+      role_text: util.getRoleText(u.role),
+      initial: (u.real_name || u.username || '用')[0]
     }));
   },
 

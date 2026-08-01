@@ -1,6 +1,6 @@
 // API 请求封装：统一 baseURL、自动携带 token、统一 loading 与错误处理
 // 后端接口地址配置
-const BASE_URL = 'http://localhost:3000/api';
+const BASE_URL = 'http://192.168.2.3:3000/api';
 
 /**
  * 基础请求方法

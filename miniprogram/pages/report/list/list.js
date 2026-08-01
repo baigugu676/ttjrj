@@ -1,7 +1,7 @@
 // 我的报修列表：状态筛选 tab + 下拉刷新 + 上拉加载更多
 // 说明：此页是 TabBar 的「工单」页。维修人员进入时重定向到我的维修任务，
 //       管理员进入时重定向到工单管理（见分工文档 §2 app.json 要点）
-const api = require('../../utils/api.js');
+const api = require('../../../utils/api.js');
 
 Page({
   data: {
@@ -29,11 +29,11 @@ Page({
     // 根据角色重定向（分工文档：维修人员工单tab指向 mytasks）
     const role = app.getRole();
     if (role === 'repairer') {
-      wx.reLaunch({ url: '/pages/repair/mytasks' });
+      wx.reLaunch({ url: '/pages/repair/mytasks/mytasks' });
       return;
     }
     if (role === 'admin') {
-      wx.reLaunch({ url: '/pages/admin/orders' });
+      wx.reLaunch({ url: '/pages/admin/orders/orders' });
       return;
     }
 
@@ -110,6 +110,6 @@ Page({
 
   // 点击卡片跳转详情
   goDetail(e) {
-    wx.navigateTo({ url: '/pages/report/detail?id=' + e.detail.id });
+    wx.navigateTo({ url: '/pages/report/detail/detail?id=' + e.detail.id });
   }
 });

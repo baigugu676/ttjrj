@@ -127,14 +127,14 @@ Page({
   // ===== 跳转 =====
   // 报修用户：新建报修
   goCreate() {
-    wx.navigateTo({ url: '/pages/report/create' });
+    wx.navigateTo({ url: '/pages/report/create/create' });
   },
 
   // 报修用户：按状态查看我的报修（工单tab是 tabBar 页面，通过 Storage 传参）
   goList(e) {
     const status = e.currentTarget.dataset.status || '';
     wx.setStorageSync('listStatus', status);
-    wx.switchTab({ url: '/pages/report/list' });
+    wx.switchTab({ url: '/pages/report/list/list' });
   },
 
   // 工单详情（根据角色跳转不同详情页）
@@ -148,32 +148,32 @@ Page({
 
   // 维修人员：待接单工单池
   goPool() {
-    wx.navigateTo({ url: '/pages/repair/pool' });
+    wx.navigateTo({ url: '/pages/repair/pool/pool' });
   },
 
   // 维修人员：我的维修任务
   goMyTasks() {
-    wx.navigateTo({ url: '/pages/repair/mytasks' });
+    wx.navigateTo({ url: '/pages/repair/mytasks/mytasks' });
   },
 
   // 管理员：工单管理（按状态筛选）
   goAdminOrders(e) {
     const status = (e.currentTarget.dataset && e.currentTarget.dataset.status) || '';
-    wx.navigateTo({ url: '/pages/admin/orders?status=' + status });
+    wx.navigateTo({ url: '/pages/admin/orders/orders?status=' + status });
   },
 
   // 管理员：用户管理
   goUsers() {
-    wx.navigateTo({ url: '/pages/admin/users' });
+    wx.navigateTo({ url: '/pages/admin/users/users' });
   },
 
   // 管理员：数据统计
   goStats() {
-    wx.navigateTo({ url: '/pages/admin/statistics' });
+    wx.navigateTo({ url: '/pages/admin/statistics/statistics' });
   },
 
   // 管理员：点位管理
   goLocations() {
-    wx.navigateTo({ url: '/pages/admin/locations' });
+    wx.navigateTo({ url: '/pages/admin/locations/locations' });
   }
 });
