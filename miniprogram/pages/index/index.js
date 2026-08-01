@@ -137,9 +137,13 @@ Page({
     wx.switchTab({ url: '/pages/report/list' });
   },
 
-  // 工单详情
+  // 工单详情（根据角色跳转不同详情页）
   goDetail(e) {
-    wx.navigateTo({ url: '/pages/report/detail?id=' + e.detail.id });
+    const id = e.detail.id;
+    const url = this.data.role === 'admin'
+      ? '/pages/admin/order-detail?id=' + id
+      : '/pages/report/detail?id=' + id;
+    wx.navigateTo({ url });
   },
 
   // 维修人员：待接单工单池
