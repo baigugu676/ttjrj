@@ -23,7 +23,7 @@
       <text class="form-label">现场照片（最多9张）</text>
       <view class="upload-grid">
         <view class="upload-item" wx:for="{{images}}" wx:key="tempPath">
-          <image class="upload-img" src="{{item.url || item.tempPath}}" mode="aspectFill"
+          <image class="upload-img" src="{{item.tempPath}}" mode="aspectFill"
             bindtap="onPreview" data-index="{{index}}"></image>
           <view class="upload-del" catchtap="onDeleteImage" data-index="{{index}}">✕</view>
         </view>
@@ -32,7 +32,6 @@
           <text class="add-text">拍照/相册</text>
         </view>
       </view>
-      <view class="upload-tip" wx:if="{{uploading > 0}}">正在上传图片 {{images.length - uploading}}/{{images.length}} ...</view>
     </view>
 
     <!-- 维修要求（选填） -->

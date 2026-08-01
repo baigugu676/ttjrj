@@ -1,5 +1,8 @@
 // 新建报修页：点位选择 + 故障描述 + 照片上传（最多9张）+ 维修要求
-// 提交逻辑：先逐张上传图片（image_type=report）→ POST /api/orders
+// 提交逻辑（与后端接口对齐）：
+//   1. 先 POST /api/orders 创建工单，拿到工单 id
+//   2. 再逐张上传照片（image_type=report，携带 order_id），由后端写入 order_images 表
+//   3. 全部完成 → 跳转列表页
 const api = require('../../utils/api.js');
 const util = require('../../utils/util.js');
 
@@ -11,8 +14,7 @@ Page({
     locationId: '',       // 选中点位 id
     description: '',      // 故障描述
     requirements: '',     // 维修要求（选填）
-    images: [],           // 已选图片 [{ tempPath, url }]
-    uploading: 0,         // 正在上传的图片数量
+    images: [],           // 已选图片 [{ tempPath }]
     submitting: false     // 是否正在提交
   },
 
@@ -50,7 +52,7 @@ Page({
     this.setData({ requirements: e.detail.value });
   },
 
-  // 选择图片（拍照 + 相册），选中后立即上传
+  // 选择图片（拍照 + 相册），仅暂存本地路径，提交时统一上传
   onChooseImage() {
     const remain = 9 - this.data.images.length;
     if (remain <= 0) {
@@ -62,37 +64,10 @@ Page({
       sizeType: ['compressed'],
       sourceType: ['album', 'camera'],
       success: (res) => {
-        const newItems = res.tempFilePaths.map((p) => ({ tempPath: p, url: '' }));
-        const images = this.data.images.concat(newItems);
-        const uploading = this.data.uploading + newItems.length;
-        this.setData({ images, uploading });
-        newItems.forEach((item) => this.uploadOne(item));
+        const newItems = res.tempFilePaths.map((p) => ({ tempPath: p }));
+        this.setData({ images: this.data.images.concat(newItems) });
       }
     });
-  },
-
-  // 逐张上传图片（image_type=report，先传图后建单）
-  uploadOne(item) {
-    api.upload(item.tempPath, { image_type: 'report' }, { silent: true, loading: false })
-      .then((res) => {
-        // 后端可能返回字符串URL，或 { url } / { image_url } / { id }
-        const url = typeof res === 'string' ? res : (res && (res.url || res.image_url)) || '';
-        const images = this.data.images.map((it) =>
-          it.tempPath === item.tempPath ? { tempPath: it.tempPath, url: url || it.tempPath, id: (res && res.id) || '' } : it
-        );
-        this.finishUpload(images);
-      })
-      .catch(() => {
-        // 上传失败：移除该张并提示
-        const images = this.data.images.filter((it) => it.tempPath !== item.tempPath);
-        this.finishUpload(images);
-        wx.showToast({ title: '有图片上传失败，已自动移除', icon: 'none' });
-      });
-  },
-
-  finishUpload(images) {
-    const uploading = Math.max(0, this.data.uploading - 1);
-    this.setData({ images, uploading });
   },
 
   // 删除图片
@@ -106,13 +81,12 @@ Page({
   // 预览图片
   onPreview(e) {
     const { index } = e.currentTarget.dataset;
-    const urls = this.data.images.map((it) => it.url || it.tempPath);
-    util.previewImages(urls, index);
+    util.previewImages(this.data.images.map((it) => it.tempPath), index);
   },
 
-  // 提交报修
+  // 提交报修：先建工单，再传照片
   onSubmit() {
-    const { locationId, locationIndex, description, requirements, images, uploading, submitting } = this.data;
+    const { locationId, locationIndex, description, requirements, images, submitting } = this.data;
     if (submitting) return;
     if (locationIndex < 0) {
       wx.showToast({ title: '请选择故障点位', icon: 'none' });
@@ -122,24 +96,44 @@ Page({
       wx.showToast({ title: '请填写故障描述', icon: 'none' });
       return;
     }
-    if (uploading > 0) {
-      wx.showToast({ title: '图片上传中，请稍候', icon: 'none' });
-      return;
-    }
+
     this.setData({ submitting: true });
+    wx.showLoading({ title: '正在提交...', mask: true });
+
     api.post('/orders', {
       location_id: locationId,
       fault_description: description.trim(),
-      repair_requirements: requirements.trim(),
-      // 图片：优先传后端返回的 id，无 id 时传 url
-      images: images.map((it) => it.id || it.url).filter(Boolean)
+      repair_requirements: requirements.trim() || null
+    }, { loading: false, silent: true }).then((res) => {
+      const orderId = res && (res.id || res.order_id);
+      if (!orderId) {
+        throw new Error('创建工单失败');
+      }
+      // 先上传照片（成功后自动写入 order_images）
+      return this.uploadImages(orderId, images).then(() => orderId);
     }).then(() => {
+      wx.hideLoading();
       wx.showToast({ title: '报修提交成功', icon: 'success' });
       setTimeout(() => {
         wx.switchTab({ url: '/pages/report/list' });
       }, 1200);
-    }).catch(() => {
+    }).catch((err) => {
+      wx.hideLoading();
       this.setData({ submitting: false });
+      wx.showToast({ title: (err && err.message) || '提交失败，请重试', icon: 'none' });
     });
+  },
+
+  // 上传全部照片（携带 order_id 与 image_type=report）
+  uploadImages(orderId, images) {
+    if (!images || !images.length) return Promise.resolve();
+    const tasks = images.map((item) =>
+      api.upload(item.tempPath, { order_id: orderId, image_type: 'report' }, { silent: true, loading: false })
+        .catch(() => {
+          // 某张上传失败不中断整体流程，但静默忽略（前端本地路径未落库）
+          return null;
+        })
+    );
+    return Promise.all(tasks);
   }
 });
