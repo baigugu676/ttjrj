@@ -142,6 +142,12 @@ router.get('/', async (req, res, next) => {
       where.push('wo.assigned_repairer_id = ?');
       params.push(Number(req.query.assigned_repairer_id));
     }
+    // 关键字搜索（工单号 / 点位名称 / 故障描述）
+    if (req.query.keyword) {
+      const kw = `%${String(req.query.keyword).trim()}%`;
+      where.push('(wo.order_no LIKE ? OR l.name LIKE ? OR wo.fault_description LIKE ?)');
+      params.push(kw, kw, kw);
+    }
 
     // 角色数据权限限制
     if (req.user.role === 'user') {
@@ -155,7 +161,11 @@ router.get('/', async (req, res, next) => {
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
 
     // 查询总条数
-    const [countRows] = await pool.query(`SELECT COUNT(*) AS total FROM work_orders wo ${whereSql}`, params);
+    const [countRows] = await pool.query(
+      `SELECT COUNT(*) AS total FROM work_orders wo
+       LEFT JOIN locations l ON wo.location_id = l.id
+       ${whereSql}`, params
+    );
     const total = countRows[0].total;
 
     // 查询列表（联表带出点位名称、报修人、维修人姓名）

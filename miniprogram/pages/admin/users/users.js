@@ -64,10 +64,12 @@ Page({
       pageSize
     }, { loading: false }).then((res) => {
       const rows = this.decorate(this.extractList(res));
+      // 后端未做分页时返回纯数组，此时一次取全量，标记无更多
+      const isArray = Array.isArray(res);
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),
         page: target,
-        hasMore: rows.length >= pageSize,
+        hasMore: isArray ? false : rows.length >= pageSize,
         loading: false
       });
     }).catch(() => {
