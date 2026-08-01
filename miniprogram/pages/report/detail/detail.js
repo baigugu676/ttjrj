@@ -26,7 +26,7 @@ Page({
   loadDetail() {
     return api.get('/orders/' + this.data.id, {}, { loading: false }).then((order) => {
       const images = util.splitImages(order);
-      const repair = order.repair_record || order.repairRecord || null;
+      const repair = util.getRepairRecord(order);
       // 为字段做展示兜底
       if (order) {
         order.created_at_text = util.formatTime(order.created_at || order.createdAt);

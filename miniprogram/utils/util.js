@@ -97,6 +97,30 @@ function splitImages(order) {
 }
 
 /**
+ * 从工单详情对象中取出最新一条维修记录
+ * 兼容后端返回的 repair_records 数组 与 单对象 repair_record / repairRecord
+ */
+function getRepairRecord(order) {
+  if (!order) return null;
+  if (Array.isArray(order.repair_records) && order.repair_records.length) {
+    return order.repair_records[order.repair_records.length - 1];
+  }
+  return order.repair_record || order.repairRecord || null;
+}
+
+/**
+ * 从工单详情对象中取出最新一条验收记录
+ * 兼容后端返回的 acceptance_records 数组 与 单对象 acceptance_record / acceptanceRecord
+ */
+function getAcceptanceRecord(order) {
+  if (!order) return null;
+  if (Array.isArray(order.acceptance_records) && order.acceptance_records.length) {
+    return order.acceptance_records[order.acceptance_records.length - 1];
+  }
+  return order.acceptance_record || order.acceptanceRecord || null;
+}
+
+/**
  * 根据工单状态与各环节时间构建时间线步骤
  * 流转：提交 → 审核 → 接单 → 维修 → 验收
  * 每项：{ title, time, status: done|current|todo|reject, active, desc }
@@ -106,8 +130,8 @@ function buildTimelineSteps(order) {
   if (!order) return [];
   const s = order.status;
   const t = (v) => formatTime(v);
-  const repair = order.repair_record || order.repairRecord || {};
-  const accept = order.acceptance_record || order.acceptanceRecord || {};
+  const repair = getRepairRecord(order) || {};
+  const accept = getAcceptanceRecord(order) || {};
   const steps = [];
 
   // 1. 提交报修
@@ -208,6 +232,8 @@ module.exports = {
   getStatusColor,
   getRoleText,
   splitImages,
+  getRepairRecord,
+  getAcceptanceRecord,
   buildTimelineSteps,
   previewImages
 };

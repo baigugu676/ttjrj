@@ -40,8 +40,8 @@ Page({
   loadDetail() {
     return api.get('/orders/' + this.data.id, {}, { loading: false }).then((order) => {
       const images = util.splitImages(order);
-      const repair = order.repair_record || order.repairRecord || null;
-      const accept = order.acceptance_record || order.acceptanceRecord || null;
+      const repair = util.getRepairRecord(order);
+      const accept = util.getAcceptanceRecord(order);
       order.created_at_text = util.formatTime(order.created_at || order.createdAt);
       order.reviewed_at_text = util.formatTime(order.reviewed_at);
       if (repair) {
