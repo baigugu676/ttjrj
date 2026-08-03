@@ -1,0 +1,14 @@
+{
+  "appid": "your-appid-here",
+  "projectname": "设备报修维修",
+  "miniprogramRoot": "./",
+  "compileType": "miniprogram",
+  "setting": {
+    "es6": true,
+    "postcss": true,
+    "minified": true,
+    "urlCheck": false,
+    "enhance": true
+  },
+  "libVersion": "2.30.0"
+}

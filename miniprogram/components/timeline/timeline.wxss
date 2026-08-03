@@ -1,0 +1,67 @@
+/* 时间线样式 */
+.step {
+  display: flex;
+}
+.dot-wrap {
+  width: 40rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  flex-shrink: 0;
+}
+.dot {
+  width: 20rpx;
+  height: 20rpx;
+  border-radius: 50%;
+  background: #D8D8D8;
+  margin-top: 10rpx;
+}
+.line {
+  width: 2rpx;
+  flex: 1;
+  background: #E5E5E5;
+  min-height: 44rpx;
+}
+/* 已完成：绿色 */
+.step.done .dot {
+  background: #07C160;
+}
+/* 当前进行：蓝色放大高亮 */
+.step.current .dot {
+  width: 28rpx;
+  height: 28rpx;
+  background: #2B7FFF;
+  box-shadow: 0 0 0 8rpx rgba(43, 127, 255, 0.15);
+  margin-top: 6rpx;
+}
+/* 退回：红色 */
+.step.reject .dot {
+  background: #FA5151;
+}
+.step.current .title {
+  color: #2B7FFF;
+  font-weight: 600;
+}
+.step.reject .title {
+  color: #FA5151;
+}
+.content {
+  flex: 1;
+  padding: 0 0 40rpx 16rpx;
+}
+.title {
+  font-size: 28rpx;
+  color: #333333;
+  line-height: 1.5;
+}
+.time {
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 6rpx;
+}
+.desc {
+  font-size: 24rpx;
+  color: #FA5151;
+  margin-top: 6rpx;
+  line-height: 1.5;
+}

@@ -1,0 +1,241 @@
+/* ==========================================================
+   全局样式：通用按钮 / 卡片 / 表单 / 状态标签 / 颜色变量
+   主题色规范（见分工文档 §6）：
+   --primary: #07C160（微信绿）  --danger: #FA5151
+   --warning: #FFC300            --info: #10AEFF
+   --text: #333333               --text-secondary: #999999
+   --bg: #F5F5F5                 --white: #FFFFFF
+   ========================================================== */
+
+page {
+  background: #F5F5F5;
+  color: #333333;
+  font-size: 28rpx;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
+}
+
+/* ---------- 通用按钮 ---------- */
+.btn {
+  border: none;
+  border-radius: 44rpx;
+  font-size: 32rpx;
+  height: 88rpx;
+  line-height: 88rpx;
+  padding: 0 40rpx;
+  text-align: center;
+  box-sizing: border-box;
+}
+.btn::after {
+  border: none;
+}
+/* 主按钮：微信绿 */
+.btn-primary {
+  background: #07C160;
+  color: #FFFFFF;
+}
+/* 危险按钮：红色 */
+.btn-danger {
+  background: #FA5151;
+  color: #FFFFFF;
+}
+/* 默认按钮：白底灰字 */
+.btn-default {
+  background: #FFFFFF;
+  color: #666666;
+  border: 1rpx solid #E5E5E5;
+}
+/* 浅色按钮：白底主色字 */
+.btn-light {
+  background: #FFFFFF;
+  color: #07C160;
+}
+
+/* OK上线大按钮：醒目的渐变绿、全宽、加粗 */
+.btn-ok {
+  background: linear-gradient(180deg, #22D276, #07C160);
+  color: #FFFFFF;
+  font-size: 40rpx;
+  font-weight: bold;
+  width: 100%;
+  height: 116rpx;
+  line-height: 116rpx;
+  border-radius: 20rpx;
+  box-shadow: 0 10rpx 30rpx rgba(7, 193, 96, 0.4);
+  letter-spacing: 6rpx;
+}
+
+/* ---------- 通用卡片 ---------- */
+.card {
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 28rpx;
+  margin: 20rpx 24rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+.card-title {
+  font-size: 30rpx;
+  font-weight: 600;
+  margin-bottom: 20rpx;
+}
+
+/* ---------- 通用表单 ---------- */
+.form-item {
+  margin-bottom: 32rpx;
+}
+.form-label {
+  display: block;
+  font-size: 28rpx;
+  color: #333333;
+  font-weight: 500;
+  margin-bottom: 14rpx;
+}
+.form-input {
+  width: 100%;
+  height: 88rpx;
+  line-height: 88rpx;
+  background: #FAFAFA;
+  border: 1rpx solid #E5E5E5;
+  border-radius: 12rpx;
+  padding: 0 24rpx;
+  box-sizing: border-box;
+  font-size: 28rpx;
+}
+.form-textarea {
+  width: 100%;
+  height: 220rpx;
+  background: #FAFAFA;
+  border: 1rpx solid #E5E5E5;
+  border-radius: 12rpx;
+  padding: 20rpx 24rpx;
+  box-sizing: border-box;
+  font-size: 28rpx;
+}
+.picker {
+  display: flex;
+  align-items: center;
+  color: #333333;
+}
+.picker.placeholder {
+  color: #999999;
+}
+/* 必填星号 */
+.form-required {
+  color: #FA5151;
+}
+
+/* ---------- 状态标签（不同状态不同颜色） ---------- */
+.status-tag {
+  display: inline-block;
+  padding: 4rpx 18rpx;
+  border-radius: 8rpx;
+  font-size: 22rpx;
+  line-height: 1.6;
+}
+.status-tag.pending_review {
+  color: #FF9500;
+  background: rgba(255, 149, 0, 0.12);
+}
+.status-tag.pending_repair {
+  color: #1677FF;
+  background: rgba(22, 119, 255, 0.12);
+}
+.status-tag.repairing {
+  color: #10AEFF;
+  background: rgba(16, 174, 255, 0.12);
+}
+.status-tag.pending_accept {
+  color: #8A6FF8;
+  background: rgba(138, 111, 248, 0.12);
+}
+.status-tag.completed {
+  color: #07C160;
+  background: rgba(7, 193, 96, 0.12);
+}
+.status-tag.rejected,
+.status-tag.repair_returned {
+  color: #FA5151;
+  background: rgba(250, 81, 81, 0.12);
+}
+
+/* ---------- 其他通用 ---------- */
+.section-title {
+  font-size: 30rpx;
+  font-weight: 600;
+}
+.section-head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.more {
+  font-size: 24rpx;
+  color: #999999;
+}
+.empty {
+  text-align: center;
+  color: #999999;
+  font-size: 26rpx;
+  padding: 60rpx 0;
+}
+.page {
+  min-height: 100vh;
+  box-sizing: border-box;
+  padding-bottom: 60rpx;
+}
+.arrow {
+  color: #CCCCCC;
+  font-size: 32rpx;
+}
+
+/* 上传图片网格（报修页、维修执行页共用） */
+.upload-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+.upload-item {
+  position: relative;
+  width: 160rpx;
+  height: 160rpx;
+  margin: 0 16rpx 16rpx 0;
+}
+.upload-img {
+  width: 100%;
+  height: 100%;
+  border-radius: 12rpx;
+}
+.upload-del {
+  position: absolute;
+  top: -14rpx;
+  right: -14rpx;
+  width: 40rpx;
+  height: 40rpx;
+  line-height: 38rpx;
+  text-align: center;
+  background: #FA5151;
+  color: #FFFFFF;
+  border-radius: 50%;
+  font-size: 24rpx;
+  border: 3rpx solid #FFFFFF;
+}
+.upload-add {
+  width: 160rpx;
+  height: 160rpx;
+  border: 2rpx dashed #C8C9CC;
+  border-radius: 12rpx;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: #FAFAFA;
+}
+.upload-add .plus {
+  font-size: 56rpx;
+  color: #C8C9CC;
+  line-height: 1;
+}
+.upload-add .add-text {
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 8rpx;
+}

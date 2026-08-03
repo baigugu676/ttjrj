@@ -1,0 +1,36 @@
+<!-- 工单管理（管理员）：状态筛选 + 搜索 + 工单列表（按状态显示审核/验收/查看按钮） -->
+<view class="page">
+  <!-- 搜索框 -->
+  <view class="search-bar">
+    <input class="search-input" placeholder="按工单号或点位搜索" value="{{keyword}}"
+      bindinput="onKeywordInput" bindconfirm="onSearch" confirm-type="search" />
+    <view class="search-btn" bindtap="onSearch">搜索</view>
+  </view>
+
+  <!-- 状态筛选 tab -->
+  <view class="filter-tabs">
+    <view class="filter-tab {{status === item.value ? 'active' : ''}}"
+      wx:for="{{statusTabs}}" wx:key="value" bindtap="onTabChange" data-value="{{item.value}}">
+      {{item.label}}
+    </view>
+  </view>
+
+  <!-- 工单列表 -->
+  <view class="list">
+    <view class="row" wx:for="{{list}}" wx:key="id" bindtap="goDetail" data-id="{{item.id}}">
+      <view class="row-top">
+        <view class="row-location">{{item.location_name || '未知点位'}}</view>
+        <view class="status-tag {{item.status}}">{{item.status_text}}</view>
+      </view>
+      <view class="row-line">单号：{{item.order_no}}</view>
+      <view class="row-line">报修人：{{item.reporter_name || item.reporter_real_name || '-'}}</view>
+      <view class="row-bottom">
+        <text class="row-time">{{item.created_at_text}}</text>
+        <view class="op-btn {{item.action_btn_class}}" catchtap="doAction" data-id="{{item.id}}">{{item.action_text}}</view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无工单数据</view>
+    <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+</view>

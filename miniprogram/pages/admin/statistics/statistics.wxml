@@ -1,0 +1,65 @@
+<!-- 数据统计看板（管理员）：4个数字卡片 + 状态分布条形图 + 点位故障排行 + 维修人员工作量 -->
+<view class="page">
+  <!-- 概览数字卡片 -->
+  <view class="stats-grid">
+    <view class="stat-card">
+      <view class="stat-inner">
+        <view class="num">{{overview.today_new || 0}}</view>
+        <view class="label">今日新增</view>
+      </view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-inner">
+        <view class="num">{{overview.pending || 0}}</view>
+        <view class="label">待处理</view>
+      </view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-inner">
+        <view class="num">{{overview.month_completed || 0}}</view>
+        <view class="label">本月完成</view>
+      </view>
+    </view>
+    <view class="stat-card">
+      <view class="stat-inner">
+        <view class="num">{{avgDurationText}}</view>
+        <view class="label">平均时长</view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 工单状态分布（CSS 横向条形图） -->
+  <view class="card">
+    <view class="card-title">工单状态分布</view>
+    <view class="bar-row" wx:for="{{statusDist}}" wx:key="status">
+      <view class="bar-label">{{item.text}}</view>
+      <view class="bar-track">
+        <view class="bar-fill" style="width: {{item.percent}}%; background: {{item.color}};"></view>
+      </view>
+      <view class="bar-num">{{item.count}}</view>
+    </view>
+    <view class="empty" wx:if="{{!statusDist.length}}">暂无数据</view>
+  </view>
+
+  <!-- 点位故障排行 -->
+  <view class="card">
+    <view class="card-title">点位故障排行 TOP10</view>
+    <view class="rank-row" wx:for="{{locationRank}}" wx:key="index">
+      <view class="rank-no {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
+      <view class="rank-name">{{item.name || item.location_name || '未知点位'}}</view>
+      <view class="rank-count">{{item.count || 0}} 次</view>
+    </view>
+    <view class="empty" wx:if="{{!locationRank.length}}">暂无数据</view>
+  </view>
+
+  <!-- 维修人员工作量 -->
+  <view class="card">
+    <view class="card-title">维修人员工作量</view>
+    <view class="rank-row" wx:for="{{repairerWorkload}}" wx:key="index">
+      <view class="rank-no {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
+      <view class="rank-name">{{item.name || item.real_name || item.repairer_name || '维修人员'}}</view>
+      <view class="rank-count">{{item.count || 0}} 单</view>
+    </view>
+    <view class="empty" wx:if="{{!repairerWorkload.length}}">暂无数据</view>
+  </view>
+</view>

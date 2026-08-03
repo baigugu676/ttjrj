@@ -1,0 +1,38 @@
+/* 报修详情页样式 */
+.head {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 20rpx;
+}
+.order-no {
+  font-size: 24rpx;
+  color: #999999;
+}
+.info-row {
+  display: flex;
+  margin-bottom: 16rpx;
+  line-height: 1.6;
+}
+.info-row .label {
+  width: 140rpx;
+  flex-shrink: 0;
+  color: #999999;
+  font-size: 26rpx;
+}
+.info-row .value {
+  flex: 1;
+  font-size: 26rpx;
+  color: #333333;
+  word-break: break-all;
+}
+.photo-grid {
+  display: flex;
+  flex-wrap: wrap;
+}
+.photo {
+  width: 160rpx;
+  height: 160rpx;
+  border-radius: 12rpx;
+  margin: 0 16rpx 16rpx 0;
+}

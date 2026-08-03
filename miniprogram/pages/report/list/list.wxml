@@ -1,0 +1,17 @@
+<!-- 工单tab：报修用户显示我的报修；维修人员/管理员按角色重定向到对应页面 -->
+<view class="page">
+  <!-- 状态筛选 tab -->
+  <view class="filter-tabs">
+    <view class="filter-tab {{status === item.value ? 'active' : ''}}"
+      wx:for="{{statusTabs}}" wx:key="value" bindtap="onTabChange" data-value="{{item.value}}">
+      {{item.label}}
+    </view>
+  </view>
+
+  <!-- 工单列表 -->
+  <view class="list">
+    <order-card wx:for="{{list}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无工单数据</view>
+    <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+</view>

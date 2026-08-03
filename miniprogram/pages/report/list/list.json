@@ -1,0 +1,8 @@
+{
+  "navigationBarTitleText": "工单",
+  "enablePullDownRefresh": true,
+  "onReachBottomDistance": 100,
+  "usingComponents": {
+    "order-card": "/components/order-card/order-card"
+  }
+}

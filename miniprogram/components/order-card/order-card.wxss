@@ -1,0 +1,49 @@
+/* 工单卡片样式 */
+.order-card {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+  margin: 0 0 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+.order-card.hover {
+  background: #F7F8FA;
+}
+.left {
+  flex: 1;
+  min-width: 0;
+  margin-right: 16rpx;
+}
+.location {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.desc {
+  font-size: 26rpx;
+  color: #666666;
+  line-height: 1.5;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap; /* 单行截断 */
+  margin: 8rpx 0;
+}
+.bottom {
+  display: flex;
+  align-items: center;
+}
+.no {
+  font-size: 22rpx;
+  color: #BBBBBB;
+  margin-right: 12rpx;
+}
+.time {
+  font-size: 24rpx;
+  color: #999999;
+}

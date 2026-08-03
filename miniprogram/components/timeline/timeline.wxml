@@ -1,0 +1,14 @@
+<!-- 垂直时间线：左侧竖线 + 圆点，右侧标题 + 时间；当前状态高亮 -->
+<view class="timeline">
+  <view class="step {{item.active ? 'current' : (item.status || 'todo')}}" wx:for="{{steps}}" wx:key="index">
+    <view class="dot-wrap">
+      <view class="dot"></view>
+      <view class="line" wx:if="{{index < steps.length - 1}}"></view>
+    </view>
+    <view class="content">
+      <view class="title">{{item.title}}</view>
+      <view class="time">{{item.time}}</view>
+      <view class="desc" wx:if="{{item.desc}}">{{item.desc}}</view>
+    </view>
+  </view>
+</view>

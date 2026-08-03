@@ -1,0 +1,70 @@
+<!-- 用户管理（管理员）：角色筛选 + 用户列表 + 添加/编辑弹窗 + 禁用/启用 -->
+<view class="page">
+  <!-- 角色筛选 -->
+  <view class="filter-tabs">
+    <view class="filter-tab {{roleFilter === item.value ? 'active' : ''}}"
+      wx:for="{{roleTabs}}" wx:key="value" bindtap="onRoleFilter" data-value="{{item.value}}">
+      {{item.label}}
+    </view>
+  </view>
+
+  <!-- 用户列表 -->
+  <view class="list">
+    <view class="user-row" wx:for="{{list}}" wx:key="id">
+      <image class="u-avatar" wx:if="{{item.avatar_url || item.avatar}}" src="{{item.avatar_url || item.avatar}}" mode="aspectFill"></image>
+      <view class="u-avatar default" wx:else>{{item.initial}}</view>
+      <view class="u-info">
+        <view class="u-name">
+          {{item.real_name || item.username || '未知用户'}}
+          <text class="role-tag">{{item.role_text}}</text>
+        </view>
+        <view class="u-sub">{{item.username}} · {{item.status === 'disabled' ? '已禁用' : '正常'}}</view>
+      </view>
+      <view class="u-ops">
+        <view class="op-btn edit" catchtap="editUser" data-id="{{item.id}}">编辑</view>
+        <view class="op-btn {{item.status === 'disabled' ? 'enable' : 'disable'}}"
+          catchtap="toggleStatus" data-id="{{item.id}}">
+          {{item.status === 'disabled' ? '启用' : '禁用'}}
+        </view>
+      </view>
+    </view>
+
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无用户</view>
+    <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+
+  <!-- 添加按钮 -->
+  <view class="fab" bindtap="openAdd">＋ 添加用户</view>
+
+  <!-- 添加/编辑弹窗 -->
+  <view class="mask" wx:if="{{showModal}}" bindtap="closeModal"></view>
+  <view class="modal" wx:if="{{showModal}}">
+    <view class="modal-title">{{modalTitle}}</view>
+    <view class="form-item">
+      <text class="form-label">用户名 <text class="form-required">*</text></text>
+      <input class="form-input" placeholder="请输入用户名" value="{{form.username}}" bindinput="onFormInput" data-field="username" />
+    </view>
+    <view class="form-item" wx:if="{{!form.id}}">
+      <text class="form-label">密码 <text class="form-required">*</text></text>
+      <input class="form-input" placeholder="请输入密码" password value="{{form.password}}" bindinput="onFormInput" data-field="password" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">姓名 <text class="form-required">*</text></text>
+      <input class="form-input" placeholder="请输入真实姓名" value="{{form.real_name}}" bindinput="onFormInput" data-field="real_name" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">手机号</text>
+      <input class="form-input" type="number" placeholder="请输入手机号" value="{{form.phone}}" bindinput="onFormInput" data-field="phone" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">角色 <text class="form-required">*</text></text>
+      <picker range="{{roleOptions}}" range-key="label" value="{{form.roleIndex}}" bindchange="onRoleChange">
+        <view class="form-input picker">{{roleOptions[form.roleIndex].label}} ▾</view>
+      </picker>
+    </view>
+    <view class="modal-btns">
+      <button class="btn btn-default modal-btn" bindtap="closeModal">取消</button>
+      <button class="btn btn-primary modal-btn" bindtap="saveUser" loading="{{saving}}">保存</button>
+    </view>
+  </view>
+</view>

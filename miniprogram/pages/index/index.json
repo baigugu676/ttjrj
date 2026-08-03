@@ -1,0 +1,6 @@
+{
+  "navigationBarTitleText": "首页",
+  "usingComponents": {
+    "order-card": "/components/order-card/order-card"
+  }
+}

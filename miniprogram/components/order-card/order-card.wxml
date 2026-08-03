@@ -1,0 +1,12 @@
+<!-- 工单卡片：左侧 工单号/点位/描述(1行截断)/时间，右侧 状态标签 -->
+<view class="order-card" bindtap="onTap" hover-class="hover">
+  <view class="left">
+    <view class="location">{{order.location_name || order.location || '未知点位'}}</view>
+    <view class="desc">{{order.fault_description || order.description || '暂无故障描述'}}</view>
+    <view class="bottom">
+      <text class="no" wx:if="{{order.order_no}}">{{order.order_no}}</text>
+      <text class="time">{{timeText}}</text>
+    </view>
+  </view>
+  <view class="status-tag {{statusTextClass}}" wx:if="{{statusText}}">{{statusText}}</view>
+</view>

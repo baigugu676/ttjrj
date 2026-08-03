@@ -1,0 +1,41 @@
+/* 我的维修任务页样式 */
+.tabs {
+  display: flex;
+  background: #FFFFFF;
+  padding: 20rpx 8rpx;
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.tab {
+  flex: 1;
+  text-align: center;
+  font-size: 28rpx;
+  color: #666666;
+  padding: 10rpx 0;
+  border-radius: 30rpx;
+  margin: 0 6rpx;
+}
+.tab.active {
+  background: rgba(7, 193, 96, 0.12);
+  color: #07C160;
+  font-weight: 600;
+}
+.list {
+  padding: 24rpx;
+}
+.task-item {
+  position: relative;
+}
+.enter-btn {
+  height: 72rpx;
+  line-height: 72rpx;
+  font-size: 28rpx;
+  margin: -8rpx 0 24rpx;
+}
+.load-more {
+  text-align: center;
+  font-size: 24rpx;
+  color: #999999;
+  padding: 20rpx 0;
+}

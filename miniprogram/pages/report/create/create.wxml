@@ -1,0 +1,48 @@
+<!-- 新建报修页：点位选择 + 故障描述 + 照片上传 + 维修要求 -->
+<view class="page">
+  <view class="card form-card">
+    <!-- 点位选择 -->
+    <view class="form-item">
+      <text class="form-label">点位名称 <text class="form-required">*</text></text>
+      <picker range="{{locationNames}}" value="{{locationIndex}}" bindchange="onLocationChange">
+        <view class="form-input picker {{locationIndex < 0 ? 'placeholder' : ''}}">
+          {{locationIndex < 0 ? '请选择故障点位' : locationNames[locationIndex]}} ▾
+        </view>
+      </picker>
+    </view>
+
+    <!-- 故障描述 -->
+    <view class="form-item">
+      <text class="form-label">故障描述 <text class="form-required">*</text></text>
+      <textarea class="form-textarea" placeholder="请详细描述故障现象..." maxlength="500"
+        value="{{description}}" bindinput="onDescInput"></textarea>
+    </view>
+
+    <!-- 现场照片 -->
+    <view class="form-item">
+      <text class="form-label">现场照片（最多9张）</text>
+      <view class="upload-grid">
+        <view class="upload-item" wx:for="{{images}}" wx:key="tempPath">
+          <image class="upload-img" src="{{item.tempPath}}" mode="aspectFill"
+            bindtap="onPreview" data-index="{{index}}"></image>
+          <view class="upload-del" catchtap="onDeleteImage" data-index="{{index}}">✕</view>
+        </view>
+        <view class="upload-add" wx:if="{{images.length < 9}}" bindtap="onChooseImage">
+          <text class="plus">＋</text>
+          <text class="add-text">拍照/相册</text>
+        </view>
+      </view>
+    </view>
+
+    <!-- 维修要求（选填） -->
+    <view class="form-item">
+      <text class="form-label">维修要求（选填）</text>
+      <textarea class="form-textarea" placeholder="特殊要求、紧急程度等备注..." maxlength="200"
+        value="{{requirements}}" bindinput="onReqInput"></textarea>
+    </view>
+  </view>
+
+  <view class="submit-area">
+    <button class="btn btn-primary submit-btn" bindtap="onSubmit" loading="{{submitting}}">提交报修</button>
+  </view>
+</view>

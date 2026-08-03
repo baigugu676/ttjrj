@@ -1,0 +1,69 @@
+<!-- 报修工单详情：基本信息 + 照片 + 时间线 + 进度说明 -->
+<view class="page" wx:if="{{order}}">
+
+  <!-- 工单基本信息 -->
+  <view class="card">
+    <view class="head">
+      <view class="status-tag {{order.status}}">{{statusText}}</view>
+      <view class="order-no">{{order.order_no}}</view>
+    </view>
+    <view class="info-row">
+      <text class="label">点位</text>
+      <text class="value">{{order.location_name || '未知点位'}}</text>
+    </view>
+    <view class="info-row">
+      <text class="label">故障描述</text>
+      <text class="value">{{order.fault_description}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.repair_requirements}}">
+      <text class="label">维修要求</text>
+      <text class="value">{{order.repair_requirements}}</text>
+    </view>
+    <view class="info-row">
+      <text class="label">提交时间</text>
+      <text class="value">{{order.created_at_text}}</text>
+    </view>
+  </view>
+
+  <!-- 报修照片 -->
+  <view class="card" wx:if="{{reportImages.length}}">
+    <view class="card-title">报修照片</view>
+    <view class="photo-grid">
+      <image class="photo" wx:for="{{reportImages}}" wx:key="*this" src="{{item}}" mode="aspectFill"
+        bindtap="previewReport" data-index="{{index}}"></image>
+    </view>
+  </view>
+
+  <!-- 维修信息 -->
+  <view class="card" wx:if="{{repairInfo}}">
+    <view class="card-title">维修信息</view>
+    <view class="info-row" wx:if="{{repairInfo.repairer_name}}">
+      <text class="label">维修人员</text>
+      <text class="value">{{repairInfo.repairer_name}}</text>
+    </view>
+    <view class="info-row">
+      <text class="label">开始时间</text>
+      <text class="value">{{repairInfo.start_time_text}}</text>
+    </view>
+    <view class="info-row" wx:if="{{repairInfo.fault_reason}}">
+      <text class="label">故障原因</text>
+      <text class="value">{{repairInfo.fault_reason}}</text>
+    </view>
+    <view class="info-row" wx:if="{{repairInfo.repair_action}}">
+      <text class="label">维修措施</text>
+      <text class="value">{{repairInfo.repair_action}}</text>
+    </view>
+    <view class="info-row" wx:if="{{repairInfo.gps_latitude}}">
+      <text class="label">维修地点</text>
+      <text class="value">{{repairInfo.location_address || repairInfo.gps_text}}</text>
+    </view>
+  </view>
+
+  <!-- 进度时间线 -->
+  <view class="card">
+    <view class="card-title">进度时间线</view>
+    <timeline steps="{{steps}}"></timeline>
+  </view>
+</view>
+
+<view class="empty" wx:else>加载中...</view>

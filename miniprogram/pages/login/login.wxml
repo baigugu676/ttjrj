@@ -1,0 +1,40 @@
+<!-- 登录页：顶部应用名称 + 账号密码表单 + 微信一键登录 -->
+<view class="page">
+  <!-- 顶部应用信息 -->
+  <view class="header">
+    <view class="logo">🔧</view>
+    <view class="app-name">设备报修维修系统</view>
+    <view class="app-desc">故障报修 · 维修跟踪 · OK上线</view>
+  </view>
+
+  <!-- 账号密码登录 -->
+  <view class="card form-card">
+    <view class="form-item">
+      <text class="form-label">用户名</text>
+      <input class="form-input" placeholder="请输入用户名" value="{{username}}" bindinput="onUsernameInput" />
+    </view>
+    <view class="form-item">
+      <text class="form-label">密码</text>
+      <input class="form-input" placeholder="请输入密码" password value="{{password}}" bindinput="onPasswordInput" />
+    </view>
+    <button class="btn btn-primary login-btn" bindtap="onLogin" loading="{{logging}}">登 录</button>
+  </view>
+
+  <!-- 微信一键登录 -->
+  <view class="divider">
+    <view class="divider-line"></view>
+    <text class="divider-text">其他登录方式</text>
+    <view class="divider-line"></view>
+  </view>
+  <button class="btn btn-light wx-btn" open-type="getUserInfo" bindgetuserinfo="onWxLogin" loading="{{logging}}">
+    微信一键登录
+  </button>
+
+  <!-- 测试账号提示 -->
+  <view class="tip">
+    <view class="tip-title">测试账号</view>
+    <view class="tip-item">管理员：admin / admin123</view>
+    <view class="tip-item">报修用户：zhangsan / 123456</view>
+    <view class="tip-item">维修人员：repairer1 / 123456</view>
+  </view>
+</view>

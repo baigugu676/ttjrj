@@ -1,0 +1,110 @@
+<!-- 工单详情（管理员）：报修信息 + 审核信息 + 维修前后对比 + 维修信息 + 时间线 + 审核/验收操作 -->
+<view class="page" wx:if="{{order}}">
+
+  <!-- 头部状态 -->
+  <view class="card">
+    <view class="head">
+      <view class="status-tag {{order.status}}">{{statusText}}</view>
+      <view class="order-no">{{order.order_no}}</view>
+    </view>
+  </view>
+
+  <!-- 报修信息 -->
+  <view class="card">
+    <view class="card-title">报修信息</view>
+    <view class="info-row"><text class="label">点位</text><text class="value">{{order.location_name || '未知点位'}}</text></view>
+    <view class="info-row"><text class="label">报修人</text><text class="value">{{reporterName}}</text></view>
+    <view class="info-row"><text class="label">联系电话</text><text class="value">{{order.reporter_phone || '-'}}</text></view>
+    <view class="info-row"><text class="label">故障描述</text><text class="value">{{order.fault_description}}</text></view>
+    <view class="info-row" wx:if="{{order.repair_requirements}}"><text class="label">维修要求</text><text class="value">{{order.repair_requirements}}</text></view>
+    <view class="info-row"><text class="label">提交时间</text><text class="value">{{order.created_at_text}}</text></view>
+    <view class="photo-grid" wx:if="{{reportImages.length}}">
+      <image class="photo" wx:for="{{reportImages}}" wx:key="*this" src="{{item}}" mode="aspectFill"
+        bindtap="previewReport" data-index="{{index}}"></image>
+    </view>
+  </view>
+
+  <!-- 审核信息 -->
+  <view class="card" wx:if="{{order.reviewed_at || order.status === 'pending_review' || order.status === 'rejected'}}">
+    <view class="card-title">审核信息</view>
+    <view class="info-row" wx:if="{{order.reviewer_name}}"><text class="label">审核人</text><text class="value">{{order.reviewer_name}}</text></view>
+    <view class="info-row" wx:if="{{order.reviewed_at}}"><text class="label">审核时间</text><text class="value">{{order.reviewed_at_text}}</text></view>
+    <view class="info-row" wx:if="{{order.review_comment}}"><text class="label">审核意见</text><text class="value">{{order.review_comment}}</text></view>
+    <view class="info-row" wx:if="{{order.reject_reason}}"><text class="label">驳回原因</text><text class="value">{{order.reject_reason}}</text></view>
+    <view class="info-row" wx:if="{{order.assigned_repairer_name}}">
+      <text class="label">指派维修</text><text class="value">{{order.assigned_repairer_name}}</text>
+    </view>
+  </view>
+
+  <!-- 维修前后照片对比 -->
+  <view class="card" wx:if="{{beforeImages.length || afterImages.length}}">
+    <view class="card-title">维修前后照片对比</view>
+    <view class="compare">
+      <view class="compare-col">
+        <view class="compare-label before">维修前</view>
+        <view class="mini-grid">
+          <image class="mini-photo" wx:for="{{beforeImages}}" wx:key="*this" src="{{item}}" mode="aspectFill"
+            bindtap="previewCompare" data-key="beforeImages" data-index="{{index}}"></image>
+          <view class="empty-mini" wx:if="{{!beforeImages.length}}">无</view>
+        </view>
+      </view>
+      <view class="compare-col">
+        <view class="compare-label after">维修后</view>
+        <view class="mini-grid">
+          <image class="mini-photo" wx:for="{{afterImages}}" wx:key="*this" src="{{item}}" mode="aspectFill"
+            bindtap="previewCompare" data-key="afterImages" data-index="{{index}}"></image>
+          <view class="empty-mini" wx:if="{{!afterImages.length}}">无</view>
+        </view>
+      </view>
+    </view>
+  </view>
+
+  <!-- 维修信息 -->
+  <view class="card" wx:if="{{repairInfo}}">
+    <view class="card-title">维修信息</view>
+    <view class="info-row" wx:if="{{repairInfo.repairer_name}}"><text class="label">维修人员</text><text class="value">{{repairInfo.repairer_name}}</text></view>
+    <view class="info-row" wx:if="{{repairInfo.start_time}}"><text class="label">开始时间</text><text class="value">{{repairInfo.start_time_text}}</text></view>
+    <view class="info-row" wx:if="{{repairInfo.end_time}}"><text class="label">OK上线</text><text class="value">{{repairInfo.end_time_text}}</text></view>
+    <view class="info-row" wx:if="{{repairInfo.gps_latitude}}">
+      <text class="label">GPS位置</text>
+      <text class="value">纬度 {{repairInfo.gps_latitude}}，经度 {{repairInfo.gps_longitude}}</text>
+    </view>
+    <view class="info-row" wx:if="{{repairInfo.location_address}}"><text class="label">地址</text><text class="value">{{repairInfo.location_address}}</text></view>
+    <view class="info-row" wx:if="{{repairInfo.fault_reason}}"><text class="label">故障原因</text><text class="value">{{repairInfo.fault_reason}}</text></view>
+    <view class="info-row" wx:if="{{repairInfo.repair_action}}"><text class="label">维修措施</text><text class="value">{{repairInfo.repair_action}}</text></view>
+  </view>
+
+  <!-- 时间线 -->
+  <view class="card">
+    <view class="card-title">状态流转时间线</view>
+    <timeline steps="{{steps}}"></timeline>
+  </view>
+
+  <!-- 审核操作区（仅 pending_review） -->
+  <view class="card op-area" wx:if="{{order.status === 'pending_review'}}">
+    <view class="card-title">审核操作</view>
+    <view class="form-item">
+      <text class="form-label">指派维修人员 <text class="form-required">*</text></text>
+      <picker range="{{repairerNames}}" value="{{repairerIndex}}" bindchange="onRepairerChange">
+        <view class="form-input picker {{repairerIndex < 0 ? 'placeholder' : ''}}">
+          {{repairerIndex < 0 ? '请选择维修人员' : repairerNames[repairerIndex]}} ▾
+        </view>
+      </picker>
+    </view>
+    <view class="op-btns">
+      <button class="btn btn-ok op-btn-lg" bindtap="doReview" data-action="approve">审核通过</button>
+      <button class="btn btn-danger op-btn-lg" bindtap="doReview" data-action="reject">驳回</button>
+    </view>
+  </view>
+
+  <!-- 验收操作区（仅 pending_accept） -->
+  <view class="card op-area" wx:if="{{order.status === 'pending_accept'}}">
+    <view class="card-title">验收操作</view>
+    <view class="op-btns">
+      <button class="btn btn-ok op-btn-lg" bindtap="doAccept" data-action="pass">验收通过</button>
+      <button class="btn btn-danger op-btn-lg" bindtap="doAccept" data-action="return">退回维修</button>
+    </view>
+  </view>
+</view>
+
+<view class="empty" wx:else>加载中...</view>

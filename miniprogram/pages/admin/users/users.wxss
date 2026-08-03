@@ -1,0 +1,152 @@
+/* 用户管理页样式 */
+.filter-tabs {
+  display: flex;
+  background: #FFFFFF;
+  padding: 20rpx 8rpx;
+}
+.filter-tab {
+  flex: 1;
+  text-align: center;
+  font-size: 26rpx;
+  color: #666666;
+  padding: 10rpx 0;
+  border-radius: 30rpx;
+  margin: 0 6rpx;
+}
+.filter-tab.active {
+  background: rgba(7, 193, 96, 0.12);
+  color: #07C160;
+  font-weight: 600;
+}
+.list {
+  padding: 24rpx;
+}
+.user-row {
+  display: flex;
+  align-items: center;
+  background: #FFFFFF;
+  border-radius: 16rpx;
+  padding: 24rpx 28rpx;
+  margin-bottom: 20rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0, 0, 0, 0.04);
+}
+.u-avatar {
+  width: 88rpx;
+  height: 88rpx;
+  border-radius: 50%;
+  flex-shrink: 0;
+  margin-right: 20rpx;
+  background: #07C160;
+  color: #FFFFFF;
+  text-align: center;
+  line-height: 88rpx;
+  font-size: 36rpx;
+  font-weight: 600;
+}
+.u-info {
+  flex: 1;
+  min-width: 0;
+}
+.u-name {
+  font-size: 30rpx;
+  font-weight: 600;
+  color: #333333;
+  display: flex;
+  align-items: center;
+}
+.role-tag {
+  font-size: 20rpx;
+  color: #07C160;
+  background: rgba(7, 193, 96, 0.12);
+  padding: 2rpx 12rpx;
+  border-radius: 6rpx;
+  margin-left: 12rpx;
+}
+.u-sub {
+  font-size: 24rpx;
+  color: #999999;
+  margin-top: 8rpx;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.u-ops {
+  display: flex;
+  flex-shrink: 0;
+}
+.op-btn {
+  padding: 8rpx 20rpx;
+  border-radius: 24rpx;
+  font-size: 24rpx;
+  margin-left: 12rpx;
+}
+.op-btn.edit {
+  background: #F2F3F5;
+  color: #666666;
+}
+.op-btn.disable {
+  background: rgba(250, 81, 81, 0.1);
+  color: #FA5151;
+}
+.op-btn.enable {
+  background: rgba(7, 193, 96, 0.1);
+  color: #07C160;
+}
+.load-more {
+  text-align: center;
+  font-size: 24rpx;
+  color: #999999;
+  padding: 20rpx 0;
+}
+
+/* 悬浮添加按钮 */
+.fab {
+  position: fixed;
+  right: 32rpx;
+  bottom: 80rpx;
+  background: #07C160;
+  color: #FFFFFF;
+  font-size: 28rpx;
+  padding: 24rpx 36rpx;
+  border-radius: 44rpx;
+  box-shadow: 0 8rpx 24rpx rgba(7, 193, 96, 0.4);
+  z-index: 20;
+}
+
+/* 弹窗 */
+.mask {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  z-index: 90;
+}
+.modal {
+  position: fixed;
+  left: 60rpx;
+  right: 60rpx;
+  top: 50%;
+  transform: translateY(-50%);
+  background: #FFFFFF;
+  border-radius: 20rpx;
+  padding: 40rpx 32rpx;
+  z-index: 100;
+}
+.modal-title {
+  font-size: 34rpx;
+  font-weight: 600;
+  text-align: center;
+  margin-bottom: 32rpx;
+}
+.modal-btns {
+  display: flex;
+  margin-top: 16rpx;
+}
+.modal-btn {
+  flex: 1;
+}
+.modal-btn:first-child {
+  margin-right: 20rpx;
+}
