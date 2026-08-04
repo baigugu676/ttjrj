@@ -77,7 +77,7 @@ Page({
     const today = util.formatTime(new Date(), 'YYYY-MM-DD');
     const poolReq = api.get('/orders', { assigned_repairer_id: uid, status: 'pending_repair', page: 1, pageSize: 3 }, { loading: false }).catch(() => ({}));
     const repairingReq = api.get('/orders', { assigned_repairer_id: uid, status: 'repairing', page: 1, pageSize: 3 }, { loading: false }).catch(() => ({}));
-    const doneReq = api.get('/orders', { assigned_repairer_id: uid, status: 'completed', page: 1, pageSize: 50 }, { loading: false }).catch(() => ({}));
+    const doneReq = api.get('/orders', { assigned_repairer_id: uid, status: 'completed', page: 1, pageSize: 200 }, { loading: false }).catch(() => ({}));
     Promise.all([
       this.countOrders({ assigned_repairer_id: uid, status: 'pending_repair' }),
       this.countOrders({ assigned_repairer_id: uid, status: 'repairing' }),
@@ -85,10 +85,10 @@ Page({
       repairingReq,
       doneReq
     ]).then(([pendingAccept, repairing, poolRes, repairingRes, doneRes]) => {
-      // 今日完成数：按完成时间（end_time / updated_at）统计当天
+      // 今日完成数：按 updated_at 统计当天（工单完成时 updated_at 自动更新为验收时间）
       const doneList = this.extractList(doneRes);
       const todayCompleted = doneList.filter((o) => {
-        const t = util.formatTime(o.end_time || o.updated_at || o.created_at, 'YYYY-MM-DD');
+        const t = util.formatTime(o.updated_at || o.created_at, 'YYYY-MM-DD');
         return t === today;
       }).length;
       this.setData({
