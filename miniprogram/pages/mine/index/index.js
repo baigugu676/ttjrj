@@ -12,7 +12,11 @@ Page({
   onShow() {
     const app = getApp();
     if (!app.checkLogin()) return;
-    const userInfo = app.getUserInfo() || {};
+    const raw = app.getUserInfo() || {};
+    // 解析头像相对路径为完整 URL（避免 <image> 组件无法显示）
+    const userInfo = Object.assign({}, raw);
+    if (userInfo.avatar_url) userInfo.avatar_url = util.resolveImageUrl(userInfo.avatar_url);
+    if (userInfo.avatar) userInfo.avatar = util.resolveImageUrl(userInfo.avatar);
     this.setData({
       userInfo,
       role: userInfo.role || '',

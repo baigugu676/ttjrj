@@ -21,7 +21,9 @@ Page({
       { label: '待维修', value: 'pending_repair' },
       { label: '维修中', value: 'repairing' },
       { label: '待验收', value: 'pending_accept' },
-      { label: '已完成', value: 'completed' }
+      { label: '已完成', value: 'completed' },
+      { label: '已驳回', value: 'rejected' },
+      { label: '退回返修', value: 'repair_returned' }
     ],
     status: '',       // 当前筛选状态
     keyword: '',      // 搜索关键字

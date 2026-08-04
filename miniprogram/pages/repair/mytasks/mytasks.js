@@ -6,7 +6,8 @@ Page({
     tabs: [
       { label: '维修中', value: 'repairing' },
       { label: '待验收', value: 'pending_accept' },
-      { label: '已完成', value: 'completed' }
+      { label: '已完成', value: 'completed' },
+      { label: '退回返修', value: 'repair_returned' }
     ],
     tab: 'repairing',   // 当前筛选状态
     list: [],

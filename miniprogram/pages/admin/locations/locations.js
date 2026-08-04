@@ -20,10 +20,16 @@ Page({
       setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
       return;
     }
+    this._initialLoad = true;
     this.loadList();
   },
 
   onShow() {
+    // 跳过首次加载（onLoad 已触发），仅从其他页面返回时刷新
+    if (this._initialLoad) {
+      this._initialLoad = false;
+      return;
+    }
     if (getApp().getRole() === 'admin') {
       this.loadList();
     }

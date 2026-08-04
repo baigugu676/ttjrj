@@ -37,10 +37,16 @@ Page({
       setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
       return;
     }
+    this._initialLoad = true;
     this.loadList(true);
   },
 
   onShow() {
+    // 跳过首次加载（onLoad 已触发），仅从其他页面返回时刷新
+    if (this._initialLoad) {
+      this._initialLoad = false;
+      return;
+    }
     if (getApp().getRole() === 'admin') {
       this.loadList(true);
     }
@@ -79,11 +85,13 @@ Page({
     });
   },
 
-  // 补充角色中文
+  // 补充角色中文，解析头像相对路径
   decorate(rows) {
     return rows.map((u) => Object.assign({}, u, {
       role_text: util.getRoleText(u.role),
-      initial: (u.real_name || u.username || '用')[0]
+      initial: (u.real_name || u.username || '用')[0],
+      avatar_url: u.avatar_url ? util.resolveImageUrl(u.avatar_url) : u.avatar_url,
+      avatar: u.avatar ? util.resolveImageUrl(u.avatar) : u.avatar
     }));
   },
 
