@@ -101,24 +101,24 @@ Page({
 
   // ===== 管理员首页 =====
   loadAdminHome() {
-    const month = util.formatTime(new Date(), 'YYYY-MM');
     const latestReq = api.get('/orders', { page: 1, pageSize: 5 }, { loading: false }).catch(() => ({}));
-    const doneReq = api.get('/orders', { status: 'completed', page: 1, pageSize: 50 }, { loading: false }).catch(() => ({}));
+    // 使用统计接口获取准确的本月完成数（基于验收通过时间，而非工单创建时间）
+    const overviewReq = api.get('/statistics/overview', {}, { loading: false }).catch(() => ({}));
     Promise.all([
       this.countOrders({ status: 'pending_review' }),
       this.countOrders({ status: 'pending_repair' }),
       this.countOrders({ status: 'pending_accept' }),
       latestReq,
-      doneReq
-    ]).then(([pendingReview, pendingRepair, pendingAccept, latestRes, doneRes]) => {
-      // 本月完成数：按完成时间统计当月
-      const doneList = this.extractList(doneRes);
-      const monthCompleted = doneList.filter((o) => {
-        const t = util.formatTime(o.end_time || o.updated_at || o.created_at, 'YYYY-MM');
-        return t === month;
-      }).length;
+      overviewReq
+    ]).then(([pendingReview, pendingRepair, pendingAccept, latestRes, overview]) => {
+      const ov = overview || {};
       this.setData({
-        stats: { pendingReview, pendingRepair, pendingAccept, monthCompleted },
+        stats: {
+          pendingReview,
+          pendingRepair,
+          pendingAccept,
+          monthCompleted: ov.month_completed || 0
+        },
         latestOrders: this.extractList(latestRes)
       });
     });

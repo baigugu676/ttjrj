@@ -1,4 +1,12 @@
 // 工具函数：日期格式化、状态/角色映射、时间线构建、图片拆分与预览等
+const { SERVER_BASE } = require('./api.js');
+
+// 将相对路径图片 URL 转为绝对路径（小程序 <image> 和 wx.previewImage 需要完整 URL）
+function resolveImageUrl(url) {
+  if (!url) return '';
+  if (url.startsWith('http://') || url.startsWith('https://') || url.startsWith('wxfile://')) return url;
+  return SERVER_BASE + (url.startsWith('/') ? url : '/' + url);
+}
 
 // 工单状态映射（后端状态为字符串枚举，见分工文档 §5 状态流转规则）
 const STATUS_MAP = {
@@ -80,10 +88,10 @@ function splitImages(order) {
   const list = (order && (order.images || order.order_images)) || [];
   list.forEach((item) => {
     if (typeof item === 'string') {
-      report.push(item);
+      report.push(resolveImageUrl(item));
       return;
     }
-    const url = (item && (item.image_url || item.url)) || '';
+    const url = resolveImageUrl((item && (item.image_url || item.url)) || '');
     if (!url) return;
     if (item.image_type === 'repair_before') {
       before.push(url);
@@ -231,6 +239,7 @@ module.exports = {
   getStatusText,
   getStatusColor,
   getRoleText,
+  resolveImageUrl,
   splitImages,
   getRepairRecord,
   getAcceptanceRecord,

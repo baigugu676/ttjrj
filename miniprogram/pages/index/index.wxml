@@ -110,7 +110,7 @@
         <view class="num">{{stats.pendingAccept || 0}}</view>
         <view class="label">待验收</view>
       </view>
-      <view class="stat-item">
+      <view class="stat-item" bindtap="goAdminOrders" data-status="completed">
         <view class="num">{{stats.monthCompleted || 0}}</view>
         <view class="label">本月完成</view>
       </view>
