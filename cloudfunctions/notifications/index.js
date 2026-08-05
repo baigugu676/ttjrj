@@ -23,6 +23,17 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
+async function ensureCollection(name) {
+  try {
+    await db.createCollection(name);
+    return true;
+  } catch (err) {
+    const msg = (err && (err.message || err.errMsg || String(err))) || '';
+    if (/already exists|已存在|ResourceExist|Collection already exists/i.test(msg)) return true;
+    return false;
+  }
+}
+
 async function getCurrentUser() {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) return null;
@@ -32,6 +43,8 @@ async function getCurrentUser() {
 
 exports.main = async (event) => {
   try {
+    await ensureCollection('users');
+    await ensureCollection('notifications');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
 

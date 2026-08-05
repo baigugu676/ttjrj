@@ -25,23 +25,41 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
-// 剔除敏感字段，并将 _id 映射为 id（兼容小程序端现有逻辑）
 function toSafeUser(user) {
   if (!user) return null;
   const { password_hash, _id, ...rest } = user;
   return { ...rest, id: _id };
 }
 
+async function ensureCollection(name) {
+  try {
+    await db.createCollection(name);
+    return true;
+  } catch (err) {
+    const msg = (err && (err.message || err.errMsg || String(err))) || '';
+    if (/already exists|已存在|ResourceExist|Collection already exists/i.test(msg)) return true;
+    return false;
+  }
+}
+
 async function findUserByOpenid(openid) {
   if (!openid) return null;
-  const res = await db.collection('users').where({ openid }).limit(1).get();
-  return res.data[0] || null;
+  try {
+    const res = await db.collection('users').where({ openid }).limit(1).get();
+    return res.data[0] || null;
+  } catch (err) {
+    return null;
+  }
 }
 
 async function findUserByUsername(username) {
   if (!username) return null;
-  const res = await db.collection('users').where({ username: String(username).trim() }).limit(1).get();
-  return res.data[0] || null;
+  try {
+    const res = await db.collection('users').where({ username: String(username).trim() }).limit(1).get();
+    return res.data[0] || null;
+  } catch (err) {
+    return null;
+  }
 }
 
 exports.main = async (event) => {
@@ -49,6 +67,7 @@ exports.main = async (event) => {
   const { action } = event || {};
 
   try {
+    await ensureCollection('users');
     // 微信一键登录：按 OPENID 识别用户，未注册则自动创建报修用户
     if (action === 'wechat') {
       let user = await findUserByOpenid(OPENID);
@@ -64,8 +83,15 @@ exports.main = async (event) => {
           created_at: db.serverDate(),
           updated_at: db.serverDate()
         };
-        const add = await db.collection('users').add({ data });
-        user = (await db.collection('users').doc(add._id).get()).data;
+        try {
+          const add = await db.collection('users').add({ data });
+          user = (await db.collection('users').doc(add._id).get()).data;
+        } catch (err) {
+          return fail('用户数据初始化失败，请先在云开发控制台创建 users 集合');
+        }
+      }
+      if (!user) {
+        return fail('用户不存在，请先注册或联系管理员');
       }
       if (user.status !== 'active') {
         return fail('账号已被禁用，请联系管理员');
@@ -83,19 +109,27 @@ exports.main = async (event) => {
       if (!user || !user.password_hash) {
         return fail('用户名或密码错误');
       }
-      const isMatch = await bcrypt.compare(password, user.password_hash);
+      let isMatch = false;
+      try {
+        isMatch = await bcrypt.compare(password, user.password_hash);
+      } catch (err) {
+        isMatch = false;
+      }
       if (!isMatch) {
         return fail('用户名或密码错误');
       }
       if (user.status !== 'active') {
         return fail('账号已被禁用，请联系管理员');
       }
-      // 绑定当前微信 OPENID，首次登录后即可一键登录
       if (OPENID && user.openid !== OPENID) {
-        await db.collection('users').doc(user._id).update({
-          data: { openid: OPENID, updated_at: db.serverDate() }
-        });
-        user.openid = OPENID;
+        try {
+          await db.collection('users').doc(user._id).update({
+            data: { openid: OPENID, updated_at: db.serverDate() }
+          });
+          user.openid = OPENID;
+        } catch (err) {
+          // 忽略绑定失败，仍允许登录
+        }
       }
       return ok({ token: user._id, userInfo: toSafeUser(user) });
     }
