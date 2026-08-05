@@ -217,9 +217,9 @@ exports.main = async (event) => {
         .get();
       const groupedQueries = await Promise.all([
         db.collection('work_orders').aggregate().group({ _id: '$assigned_repairer_id', total_assigned: $.sum(1) }).end(),
-        db.collection('work_orders').where({ status: 'completed' }).aggregate().group({ _id: '$assigned_repairer_id', completed_count: $.sum(1) }).end(),
-        db.collection('work_orders').where({ status: 'repairing' }).aggregate().group({ _id: '$assigned_repairer_id', repairing_count: $.sum(1) }).end(),
-        db.collection('work_orders').where({ status: 'pending_repair' }).aggregate().group({ _id: '$assigned_repairer_id', pending_count: $.sum(1) }).end()
+        db.collection('work_orders').aggregate().match({ status: 'completed' }).group({ _id: '$assigned_repairer_id', completed_count: $.sum(1) }).end(),
+        db.collection('work_orders').aggregate().match({ status: 'repairing' }).group({ _id: '$assigned_repairer_id', repairing_count: $.sum(1) }).end(),
+        db.collection('work_orders').aggregate().match({ status: 'pending_repair' }).group({ _id: '$assigned_repairer_id', pending_count: $.sum(1) }).end()
       ]);
       const statsMap = {};
       const mergeStats = (rows, field) => {
