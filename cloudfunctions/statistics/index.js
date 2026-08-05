@@ -25,18 +25,16 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
-async function ensureCollection(name) {
-  try {
-    await db.createCollection(name);
-    return true;
-  } catch (err) {
-    const msg = (err && (err.message || err.errMsg || String(err))) || '';
-    if (/already exists|已存在|ResourceExist|Collection already exists/i.test(msg)) return true;
-    return false;
+async function getCurrentUser(event) {
+  const token = event && event._token ? String(event._token) : '';
+  if (token) {
+    try {
+      const byToken = await db.collection('users').doc(token).get();
+      if (byToken.data) return byToken.data;
+    } catch (e) {
+      // ignore token miss and fallback to OPENID
+    }
   }
-}
-
-async function getCurrentUser() {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) return null;
   const res = await db.collection('users').where({ openid: OPENID }).limit(1).get();
@@ -88,9 +86,7 @@ function parseTime(v) {
 
 exports.main = async (event) => {
   try {
-    // 仅确保核心集合存在
-    await ensureCollection('work_orders');
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
     if (user.role !== 'admin') return fail('无权限执行该操作');
 
@@ -109,7 +105,7 @@ exports.main = async (event) => {
         .count();
 
       // 平均维修时长（分钟），基于维修记录起止时间（字符串与 Date 混合兼容）
-      const recs = await db.collection('repair_records').limit(1000).get();
+      const recs = await db.collection('repair_records').get();
       let totalMin = 0;
       let valid = 0;
       for (const r of recs.data) {
@@ -162,12 +158,10 @@ exports.main = async (event) => {
       const newRes = await db.collection('work_orders')
         .where({ created_at: _.gte(since) })
         .field({ created_at: true })
-        .limit(1000)
         .get();
       const doneRes = await db.collection('acceptance_records')
         .where({ result: 'pass', accepted_at: _.gte(since) })
         .field({ accepted_at: true })
-        .limit(1000)
         .get();
       const newMap = {};
       const doneMap = {};
@@ -192,48 +186,65 @@ exports.main = async (event) => {
     }
 
     if (action === 'locationRanking') {
-      const ordersRes = await db.collection('work_orders')
-        .field({ location_id: true })
-        .limit(1000)
-        .get();
-      const locRes = await db.collection('locations').limit(1000).get();
-      const counts = {};
-      ordersRes.data.forEach((o) => {
-        const id = o.location_id || '';
-        counts[id] = (counts[id] || 0) + 1;
+      const agg = await db.collection('work_orders')
+        .aggregate()
+        .group({ _id: '$location_id', fault_count: $.sum(1) })
+        .sort({ fault_count: -1 })
+        .limit(10)
+        .end();
+      const ids = (agg.list || []).map((item) => item._id).filter(Boolean);
+      const locRes = ids.length
+        ? await db.collection('locations').where({ _id: _.in(ids) }).get()
+        : { data: [] };
+      const locMap = {};
+      locRes.data.forEach((l) => { locMap[l._id] = l; });
+      const data = (agg.list || []).map((item) => {
+        const l = locMap[item._id] || {};
+        return {
+          id: item._id,
+          name: l.name || '',
+          area: l.area || '',
+          device_type: l.device_type || '',
+          fault_count: item.fault_count || 0
+        };
       });
-      const data = locRes.data.map((l) => ({
-        id: l._id,
-        name: l.name,
-        area: l.area || '',
-        device_type: l.device_type || '',
-        fault_count: counts[l._id] || 0
-      })).sort((a, b) => b.fault_count - a.fault_count)
-        .slice(0, 10);
       return ok(data);
     }
 
     if (action === 'repairerWorkload') {
       const repairers = await db.collection('users')
         .where({ role: 'repairer' })
-        .limit(1000)
         .get();
-      const ordersRes = await db.collection('work_orders')
-        .field({ assigned_repairer_id: true, status: true })
-        .limit(1000)
-        .get();
+      const groupedQueries = await Promise.all([
+        db.collection('work_orders').aggregate().group({ _id: '$assigned_repairer_id', total_assigned: $.sum(1) }).end(),
+        db.collection('work_orders').where({ status: 'completed' }).aggregate().group({ _id: '$assigned_repairer_id', completed_count: $.sum(1) }).end(),
+        db.collection('work_orders').where({ status: 'repairing' }).aggregate().group({ _id: '$assigned_repairer_id', repairing_count: $.sum(1) }).end(),
+        db.collection('work_orders').where({ status: 'pending_repair' }).aggregate().group({ _id: '$assigned_repairer_id', pending_count: $.sum(1) }).end()
+      ]);
+      const statsMap = {};
+      const mergeStats = (rows, field) => {
+        (rows || []).forEach((item) => {
+          const key = item._id || '';
+          if (!statsMap[key]) statsMap[key] = {};
+          statsMap[key][field] = item[field] || 0;
+        });
+      };
+      mergeStats(groupedQueries[0].list || [], 'total_assigned');
+      mergeStats(groupedQueries[1].list || [], 'completed_count');
+      mergeStats(groupedQueries[2].list || [], 'repairing_count');
+      mergeStats(groupedQueries[3].list || [], 'pending_count');
       const data = repairers.data.map((u) => {
-        const mine = ordersRes.data.filter((o) => o.assigned_repairer_id === u._id);
+        const mine = statsMap[u._id] || {};
         return {
           id: u._id,
           real_name: u.real_name || '',
           username: u.username || '',
           phone: u.phone || '',
           status: u.status || 'active',
-          total_assigned: mine.length,
-          completed_count: mine.filter((o) => o.status === 'completed').length,
-          repairing_count: mine.filter((o) => o.status === 'repairing').length,
-          pending_count: mine.filter((o) => o.status === 'pending_repair').length
+          total_assigned: mine.total_assigned || 0,
+          completed_count: mine.completed_count || 0,
+          repairing_count: mine.repairing_count || 0,
+          pending_count: mine.pending_count || 0
         };
       }).sort((a, b) => b.total_assigned - a.total_assigned);
       return ok(data);

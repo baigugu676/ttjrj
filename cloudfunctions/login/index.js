@@ -31,17 +31,6 @@ function toSafeUser(user) {
   return { ...rest, id: _id };
 }
 
-async function ensureCollection(name) {
-  try {
-    await db.createCollection(name);
-    return true;
-  } catch (err) {
-    const msg = (err && (err.message || err.errMsg || String(err))) || '';
-    if (/already exists|已存在|ResourceExist|Collection already exists/i.test(msg)) return true;
-    return false;
-  }
-}
-
 async function findUserByOpenid(openid) {
   if (!openid) return null;
   try {
@@ -67,8 +56,6 @@ exports.main = async (event) => {
   const { action } = event || {};
 
   try {
-    // 仅确保 users 集合存在（首次使用时自动创建）
-    await ensureCollection('users');
     // 微信一键登录：按 OPENID 识别用户，未注册则自动创建报修用户
     if (action === 'wechat') {
       let user = await findUserByOpenid(OPENID);

@@ -26,18 +26,16 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
-async function ensureCollection(name) {
-  try {
-    await db.createCollection(name);
-    return true;
-  } catch (err) {
-    const msg = (err && (err.message || err.errMsg || String(err))) || '';
-    if (/already exists|已存在|ResourceExist|Collection already exists/i.test(msg)) return true;
-    return false;
+async function getCurrentUser(event) {
+  const token = event && event._token ? String(event._token) : '';
+  if (token) {
+    try {
+      const byToken = await db.collection('users').doc(token).get();
+      if (byToken.data) return byToken.data;
+    } catch (e) {
+      // ignore token miss and fallback to OPENID
+    }
   }
-}
-
-async function getCurrentUser() {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) return null;
   const res = await db.collection('users').where({ openid: OPENID }).limit(1).get();
@@ -53,9 +51,7 @@ const VALID_ROLES = ['admin', 'user', 'repairer'];
 
 exports.main = async (event) => {
   try {
-    await ensureCollection('users');
-    // work_orders 由 init 云函数预创建，删除用户时若集合不存在会有明确错误提示
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
     if (user.role !== 'admin') return fail('无权限执行该操作');
 

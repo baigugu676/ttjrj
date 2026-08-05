@@ -78,8 +78,9 @@ Page({
         hasMore: rows.length >= pageSize,
         loading: false
       });
-    }).catch(() => {
+    }).catch((err) => {
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '工单加载失败', icon: 'none' });
     }).finally(() => {
       wx.stopPullDownRefresh();
     });

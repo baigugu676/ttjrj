@@ -57,18 +57,16 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
-async function ensureCollection(name) {
-  try {
-    await db.createCollection(name);
-    return true;
-  } catch (err) {
-    const msg = (err && (err.message || err.errMsg || String(err))) || '';
-    if (/already exists|已存在|ResourceExist|Collection already exists/i.test(msg)) return true;
-    return false;
+async function getCurrentUser(event) {
+  const token = event && event._token ? String(event._token) : '';
+  if (token) {
+    try {
+      const byToken = await db.collection('users').doc(token).get();
+      if (byToken.data) return byToken.data;
+    } catch (e) {
+      // ignore token miss and fallback to OPENID
+    }
   }
-}
-
-async function getCurrentUser() {
   const { OPENID } = cloud.getWXContext();
   if (!OPENID) return null;
   const res = await db.collection('users').where({ openid: OPENID }).limit(1).get();
@@ -112,7 +110,7 @@ async function generateOrderNo() {
 
 // ---------------- 通知 ----------------
 async function getAdminIds() {
-  const res = await db.collection('users').where({ role: 'admin', status: 'active' }).limit(1000).get();
+  const res = await db.collection('users').where({ role: 'admin', status: 'active' }).get();
   return res.data.map((u) => u._id);
 }
 
@@ -193,11 +191,7 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
 
 exports.main = async (event) => {
   try {
-    // 确保核心写入集合存在（集合不存在时尝试自动创建；已存在则跳过）
-    await ensureCollection('work_orders');
-    await ensureCollection('order_images');
-    await ensureCollection('repair_records');
-    const user = await getCurrentUser();
+    const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
     const { action } = event || {};
 
@@ -208,8 +202,10 @@ exports.main = async (event) => {
 
       const conds = [];
       if (event.status && statusMap[event.status]) conds.push({ status: event.status });
-      if (event.reporter_id) conds.push({ reporter_id: String(event.reporter_id) });
-      if (event.assigned_repairer_id) conds.push({ assigned_repairer_id: String(event.assigned_repairer_id) });
+      if (user.role === 'admin') {
+        if (event.reporter_id) conds.push({ reporter_id: String(event.reporter_id) });
+        if (event.assigned_repairer_id) conds.push({ assigned_repairer_id: String(event.assigned_repairer_id) });
+      }
 
       // 角色数据权限
       if (user.role === 'user') conds.push({ reporter_id: user._id });
@@ -295,17 +291,14 @@ exports.main = async (event) => {
       const imagesRes = await db.collection('order_images')
         .where({ order_id: order._id })
         .orderBy('sort_order', 'asc')
-        .limit(1000)
         .get();
       const repairRes = await db.collection('repair_records')
         .where({ order_id: order._id })
         .orderBy('created_at', 'asc')
-        .limit(1000)
         .get();
       const acceptRes = await db.collection('acceptance_records')
         .where({ order_id: order._id })
         .orderBy('accepted_at', 'asc')
-        .limit(1000)
         .get();
 
       return ok({
@@ -320,8 +313,8 @@ exports.main = async (event) => {
     // 管理员审核
     if (action === 'review') {
       if (user.role !== 'admin') return fail('无权限执行该操作');
-      const act = event.review_action || '';  // 避免与路由 action 冲突，统一用 review_action
-      const { assigned_repairer_id, review_comment = '', reject_reason = '' } = event;
+      const { review_action, assigned_repairer_id, review_comment = '', reject_reason = '' } = event;
+      const act = review_action || event.action;
       if (!['approve', 'reject'].includes(act)) return fail('审核操作不合法（approve/reject）');
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
@@ -447,8 +440,8 @@ exports.main = async (event) => {
     // 管理员验收
     if (action === 'accept') {
       if (user.role !== 'admin') return fail('无权限执行该操作');
-      const act = event.accept_action || '';  // 避免与路由 action 冲突，统一用 accept_action
-      const { return_reason = '' } = event;
+      const { accept_action, return_reason = '' } = event;
+      const act = accept_action || event.action;
       if (!['pass', 'return'].includes(act)) return fail('验收操作不合法（pass/return）');
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
@@ -486,7 +479,6 @@ exports.main = async (event) => {
         const idsRes = await db.collection(c)
           .where({ order_id: order._id })
           .field({ _id: true })
-          .limit(1000)
           .get();
         for (const r of idsRes.data) {
           await db.collection(c).doc(r._id).remove();

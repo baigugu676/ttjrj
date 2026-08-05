@@ -20,55 +20,52 @@ const BASE_URL = '';
  * @param {Object} options   { loading, loadingText, silent }
  */
 function callCloud(name, data = {}, options = {}) {
-  const { loading = true, loadingText = '加载中...', silent = false } = options;
+  const { loading = true, loadingText = '加载中...', silent = false, timeoutMs = 8000 } = options;
   return new Promise((resolve, reject) => {
+    let settled = false;
+    let timer = null;
+
+    const finish = (handler, value) => {
+      if (settled) return;
+      settled = true;
+      if (timer) clearTimeout(timer);
+      if (loading) wx.hideLoading();
+      handler(value);
+    };
+
     if (loading) {
       wx.showLoading({ title: loadingText, mask: true });
     }
-    let settled = false;
-    // 超时兜底：云函数默认 3s 超时，留 5s 余量防止冷启动延迟
-    const timer = setTimeout(() => {
-      if (settled) return;
-      settled = true;
-      if (loading) wx.hideLoading();
+
+    timer = setTimeout(() => {
       const msg = '请求超时，请重试';
       if (!silent) wx.showToast({ title: msg, icon: 'none' });
-      reject(new Error(msg));
-    }, 10000);
+      finish(reject, new Error(msg));
+    }, Math.max(1, Number(timeoutMs) || 8000));
     wx.cloud.callFunction({
       name,
       data,
       success: (res) => {
         if (settled) return;
-        settled = true;
-        clearTimeout(timer);
         const result = res && res.result;
         if (result && typeof result === 'object' && 'code' in result && result.code !== 0) {
           const msg = result.message || '请求失败';
           if (!silent) wx.showToast({ title: msg, icon: 'none' });
-          reject(new Error(msg));
+          finish(reject, new Error(msg));
         } else if (result === undefined || result === null) {
           const msg = '云函数调用失败，请稍后重试';
           if (!silent) wx.showToast({ title: msg, icon: 'none' });
-          reject(new Error(msg));
+          finish(reject, new Error(msg));
         } else {
-          // 统一解包 { code, data, message } 中的 data，与原有返回语义保持一致
           const payload = result && typeof result === 'object' && 'data' in result ? result.data : result;
-          resolve(payload);
+          finish(resolve, payload);
         }
       },
       fail: (err) => {
         if (settled) return;
-        settled = true;
-        clearTimeout(timer);
-        if (loading) wx.hideLoading();
         const msg = (err && err.errMsg) || '网络异常，请检查网络后重试';
         if (!silent) wx.showToast({ title: msg, icon: 'none' });
-        reject(new Error(msg));
-      },
-      complete: () => {
-        // complete 总是最后执行，用于兜底清理 loading
-        if (loading && !settled) wx.hideLoading();
+        finish(reject, new Error(msg));
       }
     });
   });
@@ -101,17 +98,23 @@ function resolveTarget(method, url, data) {
       if (method === 'GET') return { name: 'orders', data: Object.assign({ action: 'list' }, data) };
     }
     if (method === 'GET') return { name: 'orders', data: Object.assign({ action: 'detail', id }, data) };
+    if (method === 'PUT' && !sub) return { name: 'orders', data: Object.assign({ action: 'update', id }, data) };
     if (method === 'DELETE') return { name: 'orders', data: { action: 'delete', id } };
     if (sub === 'review') {
-      // 避免 data.action 覆盖路由的 action：将原 action 重命名为 review_action
-      const merged = { action: 'review', id };
-      if (data && data.action) { merged.review_action = data.action; delete data.action; }
-      return { name: 'orders', data: Object.assign(merged, data) };
+      const payload = Object.assign({}, data);
+      if (payload && payload.action !== undefined) {
+        payload.review_action = payload.action;
+        delete payload.action;
+      }
+      return { name: 'orders', data: Object.assign({ action: 'review', id }, payload) };
     }
     if (sub === 'accept') {
-      const merged = { action: 'accept', id };
-      if (data && data.action) { merged.accept_action = data.action; delete data.action; }
-      return { name: 'orders', data: Object.assign(merged, data) };
+      const payload = Object.assign({}, data);
+      if (payload && payload.action !== undefined) {
+        payload.accept_action = payload.action;
+        delete payload.action;
+      }
+      return { name: 'orders', data: Object.assign({ action: 'accept', id }, payload) };
     }
     if (sub === 'accept-repair') return { name: 'orders', data: { action: 'acceptRepair', id } };
     if (sub === 'repair') return { name: 'orders', data: Object.assign({ action: 'repair', id }, data) };
@@ -181,7 +184,10 @@ function request(method, url, data = {}, options = {}) {
   } catch (e) {
     return Promise.reject(e);
   }
-  return callCloud(target.name, target.data, options);
+  const token = wx.getStorageSync('token') || '';
+  const payload = Object.assign({}, target.data);
+  if (token && !payload._token) payload._token = token;
+  return callCloud(target.name, payload, options);
 }
 
 /**
@@ -216,8 +222,20 @@ function upload(filePath, formData = {}, options = {}) {
           image_type: formData.image_type || 'report'
         }, { loading: false, silent: true }).then((result) => {
           resolve({ url: fileID, fileID, order_image_id: result && result.order_image_id });
-        }).catch(() => {
-          resolve({ url: fileID, fileID, order_image_id: null });
+        }).catch((err) => {
+          const cleanup = wx.cloud && typeof wx.cloud.deleteFile === 'function'
+            ? new Promise((resolveCleanup) => {
+                wx.cloud.deleteFile({
+                  fileList: [fileID],
+                  success: () => resolveCleanup(),
+                  fail: () => resolveCleanup()
+                });
+              })
+            : Promise.resolve();
+          cleanup.then(() => {
+            const msg = (err && err.message) || '图片关联失败，请重试';
+            reject(new Error('图片上传后写库失败：' + msg));
+          });
         });
       },
       fail: (err) => {

@@ -115,6 +115,7 @@ Page({
       wx.hideLoading();
       wx.showToast({ title: '报修提交成功', icon: 'success' });
       setTimeout(() => {
+        wx.setStorageSync('listStatus', 'pending_review');
         wx.switchTab({ url: '/pages/report/list/list' });
       }, 1200);
     }).catch((err) => {
