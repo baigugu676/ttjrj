@@ -54,7 +54,7 @@ const VALID_ROLES = ['admin', 'user', 'repairer'];
 exports.main = async (event) => {
   try {
     await ensureCollection('users');
-    await ensureCollection('work_orders');
+    // work_orders 由 init 云函数预创建，删除用户时若集合不存在会有明确错误提示
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
     if (user.role !== 'admin') return fail('无权限执行该操作');

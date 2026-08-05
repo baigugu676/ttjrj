@@ -88,11 +88,8 @@ function parseTime(v) {
 
 exports.main = async (event) => {
   try {
-    await ensureCollection('users');
+    // 仅确保核心集合存在
     await ensureCollection('work_orders');
-    await ensureCollection('acceptance_records');
-    await ensureCollection('repair_records');
-    await ensureCollection('locations');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
     if (user.role !== 'admin') return fail('无权限执行该操作');

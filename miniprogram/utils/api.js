@@ -25,10 +25,23 @@ function callCloud(name, data = {}, options = {}) {
     if (loading) {
       wx.showLoading({ title: loadingText, mask: true });
     }
+    let settled = false;
+    // 超时兜底：云函数默认 3s 超时，留 5s 余量防止冷启动延迟
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      if (loading) wx.hideLoading();
+      const msg = '请求超时，请重试';
+      if (!silent) wx.showToast({ title: msg, icon: 'none' });
+      reject(new Error(msg));
+    }, 10000);
     wx.cloud.callFunction({
       name,
       data,
       success: (res) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
         const result = res && res.result;
         if (result && typeof result === 'object' && 'code' in result && result.code !== 0) {
           const msg = result.message || '请求失败';
@@ -45,12 +58,17 @@ function callCloud(name, data = {}, options = {}) {
         }
       },
       fail: (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (loading) wx.hideLoading();
         const msg = (err && err.errMsg) || '网络异常，请检查网络后重试';
         if (!silent) wx.showToast({ title: msg, icon: 'none' });
         reject(new Error(msg));
       },
       complete: () => {
-        if (loading) wx.hideLoading();
+        // complete 总是最后执行，用于兜底清理 loading
+        if (loading && !settled) wx.hideLoading();
       }
     });
   });
@@ -84,8 +102,17 @@ function resolveTarget(method, url, data) {
     }
     if (method === 'GET') return { name: 'orders', data: Object.assign({ action: 'detail', id }, data) };
     if (method === 'DELETE') return { name: 'orders', data: { action: 'delete', id } };
-    if (sub === 'review') return { name: 'orders', data: Object.assign({ action: 'review', id }, data) };
-    if (sub === 'accept') return { name: 'orders', data: Object.assign({ action: 'accept', id }, data) };
+    if (sub === 'review') {
+      // 避免 data.action 覆盖路由的 action：将原 action 重命名为 review_action
+      const merged = { action: 'review', id };
+      if (data && data.action) { merged.review_action = data.action; delete data.action; }
+      return { name: 'orders', data: Object.assign(merged, data) };
+    }
+    if (sub === 'accept') {
+      const merged = { action: 'accept', id };
+      if (data && data.action) { merged.accept_action = data.action; delete data.action; }
+      return { name: 'orders', data: Object.assign(merged, data) };
+    }
     if (sub === 'accept-repair') return { name: 'orders', data: { action: 'acceptRepair', id } };
     if (sub === 'repair') return { name: 'orders', data: Object.assign({ action: 'repair', id }, data) };
   }

@@ -191,13 +191,10 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
 
 exports.main = async (event) => {
   try {
-    await ensureCollection('users');
+    // 仅确保核心写入集合存在（其余集合由 init 云函数预创建，读取集合不存在时应有明确报错）
     await ensureCollection('work_orders');
-    await ensureCollection('locations');
-    await ensureCollection('notifications');
     await ensureCollection('order_images');
     await ensureCollection('repair_records');
-    await ensureCollection('acceptance_records');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
     const { action } = event || {};
@@ -321,7 +318,8 @@ exports.main = async (event) => {
     // 管理员审核
     if (action === 'review') {
       if (user.role !== 'admin') return fail('无权限执行该操作');
-      const { action: act, assigned_repairer_id, review_comment = '', reject_reason = '' } = event;
+      const act = event.review_action || '';  // 避免与路由 action 冲突，统一用 review_action
+      const { assigned_repairer_id, review_comment = '', reject_reason = '' } = event;
       if (!['approve', 'reject'].includes(act)) return fail('审核操作不合法（approve/reject）');
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
@@ -446,7 +444,8 @@ exports.main = async (event) => {
     // 管理员验收
     if (action === 'accept') {
       if (user.role !== 'admin') return fail('无权限执行该操作');
-      const { action: act, return_reason = '' } = event;
+      const act = event.accept_action || '';  // 避免与路由 action 冲突，统一用 accept_action
+      const { return_reason = '' } = event;
       if (!['pass', 'return'].includes(act)) return fail('验收操作不合法（pass/return）');
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');

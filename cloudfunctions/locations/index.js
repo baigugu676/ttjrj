@@ -44,18 +44,39 @@ async function getCurrentUser() {
 exports.main = async (event) => {
   try {
     await ensureCollection('locations');
-    await ensureCollection('work_orders');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
 
     const { action } = event || {};
 
     if (action === 'list') {
-      const res = await db.collection('locations')
+      let res = await db.collection('locations')
         .orderBy('sort_order', 'asc')
         .orderBy('created_at', 'asc')
         .limit(1000)
         .get();
+
+      // 首次使用：集合为空则自动填充预设点位
+      if (!res.data.length) {
+        const presets = [
+          { name: '3号楼道摄像头-01', area: '3号楼', device_type: '摄像头', sort_order: 1, status: 'active' },
+          { name: '大门入口摄像头-03', area: '大门', device_type: '摄像头', sort_order: 2, status: 'active' },
+          { name: '停车场摄像头-02', area: '停车场', device_type: '摄像头', sort_order: 3, status: 'active' },
+          { name: '2号楼道摄像头-01', area: '2号楼', device_type: '摄像头', sort_order: 4, status: 'active' },
+          { name: '围墙报警器-05', area: '围墙', device_type: '报警器', sort_order: 5, status: 'active' }
+        ];
+        for (const l of presets) {
+          await db.collection('locations').add({
+            data: { ...l, created_at: db.serverDate() }
+          });
+        }
+        res = await db.collection('locations')
+          .orderBy('sort_order', 'asc')
+          .orderBy('created_at', 'asc')
+          .limit(1000)
+          .get();
+      }
+
       return ok(res.data.map((l) => ({ ...l, id: l._id })));
     }
 

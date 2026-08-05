@@ -67,6 +67,7 @@ exports.main = async (event) => {
   const { action } = event || {};
 
   try {
+    // 仅确保 users 集合存在（首次使用时自动创建）
     await ensureCollection('users');
     // 微信一键登录：按 OPENID 识别用户，未注册则自动创建报修用户
     if (action === 'wechat') {
