@@ -1,0 +1,9 @@
+{
+  "name": "notifications",
+  "version": "1.0.0",
+  "description": "微信云开发 - 消息通知（仅操作当前用户自己的通知）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

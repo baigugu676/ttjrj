@@ -1,0 +1,10 @@
+{
+  "name": "users",
+  "version": "1.0.0",
+  "description": "微信云开发 - 用户管理（仅管理员）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3",
+    "bcryptjs": "^2.4.3"
+  }
+}

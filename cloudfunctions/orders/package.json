@@ -1,0 +1,9 @@
+{
+  "name": "orders",
+  "version": "1.0.0",
+  "description": "微信云开发 - 工单管理（核心业务：创建/列表/详情/审核/接单/维修/验收/删除/图片关联）",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

@@ -1,7 +1,8 @@
 {
-  "appid": "your-appid-here",
+  "appid": "wxa8d09d38d0595811",
   "projectname": "设备报修维修",
   "miniprogramRoot": "./",
+  "cloudfunctionRoot": "../cloudfunctions/",
   "compileType": "miniprogram",
   "setting": {
     "es6": true,
