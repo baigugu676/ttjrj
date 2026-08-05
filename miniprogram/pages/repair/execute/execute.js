@@ -64,7 +64,7 @@ Page({
       }
       // 进入页面自动尝试定位
       this.getLocation();
-    }).catch(() => {});
+    }).catch((err) => { console.error('[execute] 加载工单失败:', err); });
   },
 
   // 自动接单（await 确保接单完成后再允许提交；失败则提示用户刷新重试）
@@ -230,9 +230,9 @@ Page({
     this.setData({ submitting: true });
     wx.showLoading({ title: '正在提交...', mask: true });
     try {
-      // 1. 上传维修前/后照片
-      const beforeUrls = await this.uploadImages(this.data.beforeImages, 'repair_before');
-      const afterUrls = await this.uploadImages(this.data.afterImages, 'repair_after');
+      // 1. 上传维修前/后照片（照片通过 addImage 写入 order_images 集合）
+      await this.uploadImages(this.data.beforeImages, 'repair_before');
+      await this.uploadImages(this.data.afterImages, 'repair_after');
       // 2. 提交维修记录
       await api.put('/orders/' + this.data.id + '/repair', {
         start_time: this.data.repairDate + ' ' + this.data.repairTime,
@@ -240,10 +240,7 @@ Page({
         gps_longitude: this.data.gpsLongitude,
         location_address: this.data.locationAddress.trim() || this.data.gpsText,
         fault_reason: this.data.faultReason.trim(),
-        repair_action: this.data.repairAction.trim(),
-        // 照片地址一并提交，供后端关联（若后端仅依赖 upload 的 order_id 关联则忽略此字段）
-        before_images: beforeUrls,
-        after_images: afterUrls
+        repair_action: this.data.repairAction.trim()
       }, { loading: false, silent: true });
       wx.hideLoading();
       wx.showToast({ title: 'OK上线成功', icon: 'success' });

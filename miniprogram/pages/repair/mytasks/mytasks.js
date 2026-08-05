@@ -61,7 +61,8 @@ Page({
         hasMore: rows.length >= pageSize,
         loading: false
       });
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[mytasks] 加载任务列表失败:', err);
       this.setData({ loading: false });
     }).finally(() => {
       wx.stopPullDownRefresh();

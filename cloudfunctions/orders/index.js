@@ -95,8 +95,10 @@ function todayPrefix() {
 // 生成工单号：WO + 年月日 + 3位自增序号
 async function generateOrderNo() {
   const prefix = todayPrefix();
+  // 转义 regex 特殊字符，防止前缀中意外出现正则关键字
+  const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
   const res = await db.collection('work_orders')
-    .where({ order_no: db.RegExp({ regexp: '^' + prefix }) })
+    .where({ order_no: db.RegExp({ regexp: '^' + escaped }) })
     .orderBy('order_no', 'desc')
     .limit(1)
     .get();
@@ -192,9 +194,11 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
 exports.main = async (event) => {
   try {
     // 仅确保核心写入集合存在（其余集合由 init 云函数预创建，读取集合不存在时应有明确报错）
-    await ensureCollection('work_orders');
-    await ensureCollection('order_images');
-    await ensureCollection('repair_records');
+    const colOk = [];
+    colOk.push(await ensureCollection('work_orders'));
+    colOk.push(await ensureCollection('order_images'));
+    colOk.push(await ensureCollection('repair_records'));
+    if (colOk.some(v => !v)) return fail('数据库集合初始化失败，请先在云开发控制台创建集合或运行 init 云函数');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
     const { action } = event || {};
@@ -415,7 +419,8 @@ exports.main = async (event) => {
       }
 
       const nextStatus = order.status === 'repair_returned' ? 'pending_review' : 'pending_accept';
-      const endVal = end_time || new Date();
+      // 保持与 start_time 类型一致（均为字符串），fallback 使用 ISO 字符串
+      const endVal = end_time || new Date().toISOString();
 
       await db.collection('repair_records').add({
         data: {

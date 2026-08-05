@@ -32,7 +32,7 @@ Page({
         locations,
         locationNames: locations.map((l) => l.name)
       });
-    }).catch(() => {});
+    }).catch((err) => { console.error('[create] 加载点位列表失败:', err); });
   },
 
   onLocationChange(e) {
@@ -129,8 +129,8 @@ Page({
     if (!images || !images.length) return Promise.resolve();
     const tasks = images.map((item) =>
       api.upload(item.tempPath, { order_id: orderId, image_type: 'report' }, { silent: true, loading: false })
-        .catch(() => {
-          // 某张上传失败不中断整体流程，但静默忽略（前端本地路径未落库）
+        .catch((err) => {
+          console.error('[create] 照片上传失败:', err);
           return null;
         })
     );

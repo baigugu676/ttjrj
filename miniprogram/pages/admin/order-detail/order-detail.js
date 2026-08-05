@@ -27,7 +27,7 @@ Page({
       setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
       return;
     }
-    this.setData({ id: options.id });
+    this.setData({ id: options.id, repairerIndex: -1 });
     this.loadDetail();
     this.loadRepairers();
   },
@@ -62,7 +62,7 @@ Page({
       wx.setNavigationBarTitle({
         title: order.order_no ? ('工单 ' + order.order_no) : '工单详情'
       });
-    }).catch(() => {});
+    }).catch((err) => { console.error('[order-detail] 加载工单详情失败:', err); });
   },
 
   // 加载维修人员列表（审核通过时需指派）
@@ -73,7 +73,7 @@ Page({
         repairers: list,
         repairerNames: list.map((u) => u.real_name || u.username || ('维修员' + u.id))
       });
-    }).catch(() => {});
+    }).catch((err) => { console.error('[order-detail] 加载维修人员列表失败:', err); });
   },
 
   onRepairerChange(e) {
@@ -124,7 +124,7 @@ Page({
     api.put('/orders/' + this.data.id + '/review', data).then(() => {
       wx.showToast({ title: '操作成功', icon: 'success' });
       this.loadDetail();
-    }).catch(() => {});
+    }).catch((err) => { console.error('[order-detail] 审核提交失败:', err); });
   },
 
   // ===== 验收操作 =====
@@ -164,7 +164,7 @@ Page({
     api.put('/orders/' + this.data.id + '/accept', data).then(() => {
       wx.showToast({ title: '操作成功', icon: 'success' });
       this.loadDetail();
-    }).catch(() => {});
+    }).catch((err) => { console.error('[order-detail] 验收提交失败:', err); });
   },
 
   // 预览照片

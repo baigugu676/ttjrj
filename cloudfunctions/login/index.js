@@ -68,7 +68,8 @@ exports.main = async (event) => {
 
   try {
     // 仅确保 users 集合存在（首次使用时自动创建）
-    await ensureCollection('users');
+    const colOk = await ensureCollection('users');
+    if (!colOk) return fail('数据库集合初始化失败，请先运行 init 云函数');
     // 微信一键登录：按 OPENID 识别用户，未注册则自动创建报修用户
     if (action === 'wechat') {
       let user = await findUserByOpenid(OPENID);

@@ -54,7 +54,8 @@ Page({
         hasMore: rows.length >= pageSize,
         loading: false
       });
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[pool] 加载工单池失败:', err);
       this.setData({ loading: false });
     }).finally(() => {
       wx.stopPullDownRefresh();

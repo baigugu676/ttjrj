@@ -47,7 +47,7 @@ Page({
       wx.setNavigationBarTitle({
         title: order.order_no ? ('工单 ' + order.order_no) : '报修详情'
       });
-    }).catch(() => {});
+    }).catch((err) => { console.error('[detail] 加载工单详情失败:', err); });
   },
 
   // 预览报修照片

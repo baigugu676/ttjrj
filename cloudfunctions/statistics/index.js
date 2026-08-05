@@ -89,7 +89,8 @@ function parseTime(v) {
 exports.main = async (event) => {
   try {
     // 仅确保核心集合存在
-    await ensureCollection('work_orders');
+    const colOk = await ensureCollection('work_orders');
+    if (!colOk) return fail('数据库集合初始化失败，请先运行 init 云函数');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
     if (user.role !== 'admin') return fail('无权限执行该操作');

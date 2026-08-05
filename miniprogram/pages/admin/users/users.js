@@ -78,7 +78,8 @@ Page({
         hasMore: isArray ? false : rows.length >= pageSize,
         loading: false
       });
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[users] 加载用户列表失败:', err);
       this.setData({ loading: false });
     }).finally(() => {
       wx.stopPullDownRefresh();
@@ -207,7 +208,7 @@ Page({
         }).then(() => {
           wx.showToast({ title: '操作成功', icon: 'success' });
           this.loadList(true);
-        }).catch(() => {});
+        }).catch((err) => { console.error('[users] 状态切换失败:', err); });
       }
     });
   }

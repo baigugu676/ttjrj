@@ -57,34 +57,19 @@ App({
     });
   },
 
-  // 微信一键登录：wx.login 获取 code 后调用后端（如后端仅支持账号密码，会提示改用账号登录）
+  // 微信一键登录：云开发环境下 OPENID 由云函数自动注入，无需 wx.login 换 code
   wxLogin(profile) {
-    return new Promise((resolve, reject) => {
-      wx.login({
-        success: (res) => {
-          if (!res.code) {
-            reject(new Error('获取微信登录凭证失败'));
-            return;
-          }
-          api.post('/auth/login', {
-            code: res.code,
-            nickname: (profile && profile.nickName) || '微信用户',
-            avatar: (profile && profile.avatarUrl) || ''
-          }, { loading: false }).then((data) => {
-            const token = data && (data.token || data.accessToken);
-            const userInfo = data && (data.userInfo || data.user);
-            if (!token || !userInfo) {
-              reject(new Error('微信登录失败，请改用账号密码登录'));
-              return;
-            }
-            this.setLoginInfo(token, userInfo);
-            resolve(userInfo);
-          }).catch((err) => {
-            reject(err);
-          });
-        },
-        fail: () => reject(new Error('微信登录失败，请重试'))
-      });
+    return api.post('/auth/login', {
+      nickname: (profile && profile.nickName) || '微信用户',
+      avatar: (profile && profile.avatarUrl) || ''
+    }, { loading: false }).then((data) => {
+      const token = data && (data.token || data.accessToken);
+      const userInfo = data && (data.userInfo || data.user);
+      if (!token || !userInfo) {
+        throw new Error('微信登录失败，请改用账号密码登录');
+      }
+      this.setLoginInfo(token, userInfo);
+      return userInfo;
     });
   },
 

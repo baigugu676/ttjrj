@@ -44,7 +44,8 @@ Page({
     return api.get('/locations', {}, { loading: false }).then((res) => {
       const list = Array.isArray(res) ? res : ((res && res.list) || []);
       this.setData({ list, loading: false });
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[locations] 加载点位列表失败:', err);
       this.setData({ loading: false });
     });
   },
@@ -125,7 +126,7 @@ Page({
         api.del('/locations/' + id).then(() => {
           wx.showToast({ title: '删除成功', icon: 'success' });
           this.loadList();
-        }).catch(() => {});
+        }).catch((err) => { console.error('[locations] 删除点位失败:', err); });
       }
     });
   }
