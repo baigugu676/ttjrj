@@ -193,12 +193,10 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
 
 exports.main = async (event) => {
   try {
-    // 仅确保核心写入集合存在（其余集合由 init 云函数预创建，读取集合不存在时应有明确报错）
-    const colOk = [];
-    colOk.push(await ensureCollection('work_orders'));
-    colOk.push(await ensureCollection('order_images'));
-    colOk.push(await ensureCollection('repair_records'));
-    if (colOk.some(v => !v)) return fail('数据库集合初始化失败，请先在云开发控制台创建集合或运行 init 云函数');
+    // 确保核心写入集合存在（集合不存在时尝试自动创建；已存在则跳过）
+    await ensureCollection('work_orders');
+    await ensureCollection('order_images');
+    await ensureCollection('repair_records');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
     const { action } = event || {};

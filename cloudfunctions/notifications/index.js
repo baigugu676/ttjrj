@@ -43,8 +43,7 @@ async function getCurrentUser() {
 
 exports.main = async (event) => {
   try {
-    const colOk = await ensureCollection('notifications');
-    if (!colOk) return fail('数据库集合初始化失败，请先运行 init 云函数');
+    await ensureCollection('notifications');
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
 

@@ -53,8 +53,7 @@ const VALID_ROLES = ['admin', 'user', 'repairer'];
 
 exports.main = async (event) => {
   try {
-    const colOk = await ensureCollection('users');
-    if (!colOk) return fail('数据库集合初始化失败，请先运行 init 云函数');
+    await ensureCollection('users');
     // work_orders 由 init 云函数预创建，删除用户时若集合不存在会有明确错误提示
     const user = await getCurrentUser();
     if (!user) return fail('未登录或 token 缺失');
