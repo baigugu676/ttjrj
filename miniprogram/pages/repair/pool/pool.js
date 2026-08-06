@@ -1,4 +1,4 @@
-// 待维修工单池（维修人员）：仅展示指派给自己的 pending_repair 工单 + 接单
+// 待维修工单池（维修人员）：展示指派给自己的待接单/返修工单，并提供接单或进入返修
 const api = require('../../../utils/api.js');
 const util = require('../../../utils/util.js');
 
@@ -43,7 +43,7 @@ Page({
     this.setData({ loading: true });
     api.get('/orders', {
       assigned_repairer_id: this.getMyId(),
-      status: 'pending_repair',
+      status: 'pending_repair,repair_returned',
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
@@ -65,7 +65,10 @@ Page({
   // 补充展示字段
   decorate(rows) {
     return rows.map((o) => Object.assign({}, o, {
-      created_at_text: util.formatTime(o.created_at)
+      created_at_text: util.formatTime(o.created_at),
+      status_text: util.getStatusText(o.status),
+      action_text: o.status === 'repair_returned' ? '去返修' : '接 单',
+      action_type: o.status === 'repair_returned' ? 'repair' : 'accept'
     }));
   },
 
@@ -83,9 +86,14 @@ Page({
     this.loadList(false);
   },
 
-  // 接单：确认弹窗后调用 PUT /orders/:id/accept-repair
-  onAccept(e) {
-    const id = e.currentTarget.dataset.id;
+  // 待接单工单：确认后调用 PUT /orders/:id/accept-repair
+  // 返修工单：直接进入维修执行页
+  onAction(e) {
+    const { id, actionType } = e.currentTarget.dataset;
+    if (actionType === 'repair') {
+      wx.navigateTo({ url: '/pages/repair/execute/execute?id=' + id });
+      return;
+    }
     wx.showModal({
       title: '确认接单',
       content: '确认接取该维修工单？',

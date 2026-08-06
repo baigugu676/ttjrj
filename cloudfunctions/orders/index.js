@@ -201,7 +201,17 @@ exports.main = async (event) => {
       const pageSize = Math.min(100, Math.max(1, Number(event.pageSize) || 20));
 
       const conds = [];
-      if (event.status && statusMap[event.status]) conds.push({ status: event.status });
+      if (event.status) {
+        const statusList = Array.isArray(event.status)
+          ? event.status
+          : String(event.status).split(',').map((s) => s.trim()).filter(Boolean);
+        const validStatuses = statusList.filter((s) => statusMap[s]);
+        if (validStatuses.length === 1) {
+          conds.push({ status: validStatuses[0] });
+        } else if (validStatuses.length > 1) {
+          conds.push(_.or(validStatuses.map((s) => ({ status: s }))));
+        }
+      }
       if (user.role === 'admin') {
         if (event.reporter_id) conds.push({ reporter_id: String(event.reporter_id) });
         if (event.assigned_repairer_id) conds.push({ assigned_repairer_id: String(event.assigned_repairer_id) });

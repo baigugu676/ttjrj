@@ -14,6 +14,20 @@
   justify-content: space-between;
   align-items: center;
 }
+.status-tag {
+  min-width: 120rpx;
+  padding: 8rpx 18rpx;
+  border-radius: 999rpx;
+  font-size: 22rpx;
+  text-align: center;
+  color: #FFFFFF;
+}
+.status-tag.pending_repair {
+  background: #1677FF;
+}
+.status-tag.repair_returned {
+  background: #FA5151;
+}
 .pool-location {
   font-size: 30rpx;
   font-weight: 600;

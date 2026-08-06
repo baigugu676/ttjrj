@@ -127,10 +127,19 @@ router.get('/', async (req, res, next) => {
     const where = [];
     const params = [];
 
-    // 按状态筛选
-    if (req.query.status && VALID_STATUS.includes(req.query.status)) {
-      where.push('wo.status = ?');
-      params.push(req.query.status);
+    // 按状态筛选（支持单个状态或逗号分隔的多个状态）
+    if (req.query.status) {
+      const statusList = Array.isArray(req.query.status)
+        ? req.query.status
+        : String(req.query.status).split(',').map((s) => s.trim()).filter(Boolean);
+      const validStatuses = statusList.filter((s) => VALID_STATUS.includes(s));
+      if (validStatuses.length === 1) {
+        where.push('wo.status = ?');
+        params.push(validStatuses[0]);
+      } else if (validStatuses.length > 1) {
+        where.push(`wo.status IN (${validStatuses.map(() => '?').join(', ')})`);
+        params.push(...validStatuses);
+      }
     }
     // 按报修人筛选
     if (req.query.reporter_id) {
