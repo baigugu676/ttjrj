@@ -34,24 +34,37 @@ function formatNumber(n) {
 }
 
 /**
- * 日期格式化
- * @param {Date|Number|String} input 日期（Date 对象、时间戳、可解析字符串）
+ * 日期格式化（增强版：兼容 db.serverDate() 返回的多种格式）
+ * @param {Date|Number|String|Object} input 日期
  * @param {String} fmt 格式，默认 YYYY-MM-DD HH:mm，支持 YYYY MM DD HH mm ss
  */
 function formatTime(input, fmt) {
   if (!input && input !== 0) return '';
   const f = fmt || 'YYYY-MM-DD HH:mm';
   let d = null;
+
   if (input instanceof Date) {
     d = input;
   } else if (typeof input === 'number') {
     d = new Date(input);
   } else if (typeof input === 'string') {
-    // iOS 不支持 "YYYY-MM-DD HH:mm:ss" 直接 new Date，需替换为 "/"
-    d = new Date(String(input).replace(/-/g, '/'));
+    const str = String(input).trim();
+    if (!str) return '';
+    // 优先直接解析（适用于 ISO 8601 格式，如 db.serverDate() 返回的 "2026-08-06T10:30:00.000Z"）
+    d = new Date(str);
+    // 若失败，替换 - 为 / 再试（兼容 iOS 对 "YYYY-MM-DD" 纯日期格式的限制）
+    if (isNaN(d.getTime())) {
+      d = new Date(str.replace(/-/g, '/'));
+    }
+  } else if (typeof input === 'object' && input !== null) {
+    // 兼容云开发数据库日期对象的序列化变体 { "$date": "..." } 等
+    var dateVal = input.$date || input.date || input.value;
+    if (dateVal) return formatTime(dateVal, fmt);
+    return '';
   }
-  if (!d || isNaN(d.getTime())) return input; // 解析失败则原样返回
-  const o = {
+
+  if (!d || isNaN(d.getTime())) return ''; // 解析失败返回空字符串（不再返回原始对象）
+  var o = {
     'YYYY': d.getFullYear(),
     'MM': formatNumber(d.getMonth() + 1),
     'DD': formatNumber(d.getDate()),
@@ -59,7 +72,7 @@ function formatTime(input, fmt) {
     'mm': formatNumber(d.getMinutes()),
     'ss': formatNumber(d.getSeconds())
   };
-  return f.replace(/YYYY|MM|DD|HH|mm|ss/g, (k) => o[k]);
+  return f.replace(/YYYY|MM|DD|HH|mm|ss/g, function (k) { return o[k]; });
 }
 
 // 状态码转中文

@@ -75,27 +75,40 @@ Page({
   loadRepairerHome() {
     const uid = this.data.userInfo.id;
     const today = util.formatTime(new Date(), 'YYYY-MM-DD');
-    const poolReq = api.get('/orders', { assigned_repairer_id: uid, status: 'pending_repair', page: 1, pageSize: 3 }, { loading: false }).catch(() => ({}));
-    const repairingReq = api.get('/orders', { assigned_repairer_id: uid, status: 'repairing', page: 1, pageSize: 3 }, { loading: false }).catch(() => ({}));
-    const doneReq = api.get('/orders', { assigned_repairer_id: uid, status: 'completed', page: 1, pageSize: 200 }, { loading: false }).catch(() => ({}));
+    const poolReq = api.get('/orders', { status: 'pending_repair', page: 1, pageSize: 3 }, { loading: false }).catch((err) => {
+      console.error('[index] 待接单查询失败:', err);
+      return {};
+    });
+    const repairingReq = api.get('/orders', { status: 'repairing', page: 1, pageSize: 3 }, { loading: false }).catch((err) => {
+      console.error('[index] 维修中查询失败:', err);
+      return {};
+    });
+    const doneReq = api.get('/orders', { status: 'completed', page: 1, pageSize: 200 }, { loading: false }).catch((err) => {
+      console.error('[index] 已完成查询失败:', err);
+      return {};
+    });
     Promise.all([
-      this.countOrders({ assigned_repairer_id: uid, status: 'pending_repair' }),
-      this.countOrders({ assigned_repairer_id: uid, status: 'repairing' }),
+      this.countOrders({ status: 'pending_repair' }),
+      this.countOrders({ status: 'repairing' }),
       poolReq,
       repairingReq,
       doneReq
     ]).then(([pendingAccept, repairing, poolRes, repairingRes, doneRes]) => {
       // 今日完成数：按 updated_at 统计当天（工单完成时 updated_at 自动更新为验收时间）
       const doneList = this.extractList(doneRes);
+      console.log('[index] doneList length=' + doneList.length + ', today=' + today);
       const todayCompleted = doneList.filter((o) => {
         const t = util.formatTime(o.updated_at || o.created_at, 'YYYY-MM-DD');
         return t === today;
       }).length;
+      console.log('[index] todayCompleted=' + todayCompleted);
       this.setData({
         stats: { pendingAccept, repairing, todayCompleted },
         poolOrders: this.extractList(poolRes),
         repairingOrders: this.extractList(repairingRes)
       });
+    }).catch((err) => {
+      console.error('[index] loadRepairerHome 异常:', err);
     });
   },
 
