@@ -1,0 +1,23 @@
+<!-- 消息通知页：通知列表 + 全部已读按钮 -->
+<view class="page">
+  <view class="list">
+    <view class="notif-item {{item.is_read ? '' : 'unread'}}"
+      wx:for="{{list}}" wx:key="id"
+      bindtap="goOrder" data-id="{{item.id}}" data-index="{{index}}" data-order-id="{{item.order_id}}">
+      <view class="notif-dot" wx:if="{{!item.is_read}}"></view>
+      <view class="notif-body">
+        <view class="notif-title">{{item.title}}</view>
+        <view class="notif-content">{{item.content}}</view>
+        <view class="notif-time">{{item.created_at_text}}</view>
+      </view>
+      <view class="notif-arrow">›</view>
+    </view>
+    <view class="empty" wx:if="{{!list.length && !loading}}">暂无通知消息</view>
+    <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+
+  <!-- 底部全部已读按钮 -->
+  <view class="bottom-bar" wx:if="{{list.length}}">
+    <button class="btn btn-default" bindtap="markAllRead">✓ 全部已读</button>
+  </view>
+</view>

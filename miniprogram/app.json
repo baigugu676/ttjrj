@@ -13,7 +13,8 @@
     "pages/admin/statistics/statistics",
     "pages/admin/users/users",
     "pages/admin/locations/locations",
-    "pages/mine/index/index"
+    "pages/mine/index/index",
+    "pages/notifications/notifications"
   ],
   "window": {
     "navigationBarBackgroundColor": "#07C160",

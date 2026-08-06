@@ -156,6 +156,12 @@ Page({
     wx.navigateTo({ url: '/pages/repair/mytasks/mytasks' });
   },
 
+  // 维修人员：今日完成（跳转 mytasks 并预设 today_completed tab）
+  goMyTasksToday() {
+    wx.setStorageSync('mytasksTab', 'today_completed');
+    wx.navigateTo({ url: '/pages/repair/mytasks/mytasks' });
+  },
+
   // 管理员：工单管理（按状态筛选）
   goAdminOrders(e) {
     const status = (e.currentTarget.dataset && e.currentTarget.dataset.status) || '';

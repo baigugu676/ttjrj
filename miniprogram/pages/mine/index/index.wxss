@@ -60,6 +60,12 @@
   font-size: 30rpx;
   color: #333333;
 }
+.arrow {
+  font-size: 36rpx;
+  color: #CCCCCC;
+  margin-left: 12rpx;
+  flex-shrink: 0;
+}
 
 .logout-btn {
   margin: 60rpx 48rpx 0;
@@ -69,4 +75,21 @@
   font-size: 24rpx;
   color: #BBBBBB;
   margin-top: 60rpx;
+}
+.badge-row {
+  display: flex;
+  align-items: center;
+  margin-right: 4rpx;
+}
+.badge {
+  background: #FA5151;
+  color: #FFFFFF;
+  font-size: 22rpx;
+  font-weight: 600;
+  min-width: 36rpx;
+  height: 36rpx;
+  line-height: 36rpx;
+  text-align: center;
+  border-radius: 18rpx;
+  padding: 0 8rpx;
 }

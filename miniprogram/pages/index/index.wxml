@@ -54,7 +54,7 @@
         <view class="num">{{stats.repairing || 0}}</view>
         <view class="label">维修中</view>
       </view>
-      <view class="stat-item">
+      <view class="stat-item" bindtap="goMyTasksToday">
         <view class="num">{{stats.todayCompleted || 0}}</view>
         <view class="label">今日完成</view>
       </view>
