@@ -110,6 +110,10 @@
         <view class="num">{{stats.pendingAccept || 0}}</view>
         <view class="label">待验收</view>
       </view>
+      <view class="stat-item" bindtap="goAdminOrders" data-status="repair_returned">
+        <view class="num">{{stats.repairReturned || 0}}</view>
+        <view class="label">退回返修</view>
+      </view>
       <view class="stat-item" bindtap="goAdminOrders" data-status="completed">
         <view class="num">{{stats.monthCompleted || 0}}</view>
         <view class="label">本月完成</view>
@@ -124,6 +128,10 @@
       <view class="quick-cell" bindtap="goAdminOrders" data-status="pending_accept">
         <text class="quick-icon">✅</text>
         <text class="quick-label">待验收</text>
+      </view>
+      <view class="quick-cell" bindtap="goAdminOrders" data-status="repair_returned">
+        <text class="quick-icon">↩️</text>
+        <text class="quick-label">退回返修</text>
       </view>
       <view class="quick-cell" bindtap="goUsers">
         <text class="quick-icon">👥</text>

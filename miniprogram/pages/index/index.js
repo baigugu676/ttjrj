@@ -121,15 +121,17 @@ Page({
       this.countOrders({ status: 'pending_review' }),
       this.countOrders({ status: 'pending_repair' }),
       this.countOrders({ status: 'pending_accept' }),
+      this.countOrders({ status: 'repair_returned' }),
       latestReq,
       overviewReq
-    ]).then(([pendingReview, pendingRepair, pendingAccept, latestRes, overview]) => {
+    ]).then(([pendingReview, pendingRepair, pendingAccept, repairReturned, latestRes, overview]) => {
       const ov = overview || {};
       this.setData({
         stats: {
           pendingReview,
           pendingRepair,
           pendingAccept,
+          repairReturned,
           monthCompleted: ov.month_completed || 0
         },
         latestOrders: this.extractList(latestRes)
