@@ -4,7 +4,7 @@
     <view class="pool-card {{item.status}}" wx:for="{{list}}" wx:key="id">
       <view class="pool-top">
         <view class="pool-location">{{item.location_name || '未知点位'}}</view>
-        <view class="status-tag {{item.status}}">{{item.status_text}}</view>
+        <view class="status-tag {{item.status}}" wx:if="{{item.status !== 'repair_returned'}}">{{item.status_text}}</view>
       </view>
       <view class="status-subtext">{{item.status_subtext}}</view>
       <view class="pool-desc">{{item.fault_description}}</view>
