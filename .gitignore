@@ -18,6 +18,7 @@ npm-debug.log*
 Thumbs.db
 .idea/
 .vscode/
+.vs/
 
 # 微信开发者工具
 miniprogram/dist/
