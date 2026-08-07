@@ -415,11 +415,11 @@ exports.main = async (event) => {
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
       if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法提交维修记录');
-      if (!['repairing', 'repair_returned'].includes(order.status)) {
-        return fail(`当前状态为「${statusMap[order.status] || order.status}」，仅维修中或返修退回的工单可以提交维修记录`);
-      }
+       if (!['repairing', 'repair_returned'].includes(order.status)) {
+         return fail(`当前状态为「${statusMap[order.status] || order.status}」，仅维修中或返修退回的工单可以提交维修记录`);
+       }
 
-      const nextStatus = order.status === 'repair_returned' ? 'pending_review' : 'pending_accept';
+       const nextStatus = 'pending_accept';
       // 保持与 start_time 类型一致（均为字符串），fallback 使用 ISO 字符串
       const endVal = end_time || new Date().toISOString();
 
@@ -442,7 +442,7 @@ exports.main = async (event) => {
         data: { status: nextStatus, updated_at: db.serverDate() }
       });
 
-      const extra = order.status === 'repair_returned' ? '返修完成并重新提交' : '';
+       const extra = order.status === 'repair_returned' ? '返修完成并重新提交，待验收' : '';
       await notifyOrderStatusChange(order._id, 'repair_done', order.order_no, order.location_name, extra);
       return ok(null);
     }

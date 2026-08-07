@@ -412,7 +412,7 @@ router.put('/:id/accept-repair', requireRole('repairer'), async (req, res, next)
  * PUT /api/orders/:id/repair — 维修人员提交维修记录
  * 支持两种流转：
  *   repairing        → pending_accept（正常维修完成，待验收）
- *   repair_returned  → pending_review（返修后重新提交，待重新审核）
+ *   repair_returned  → pending_accept（返修后重新提交，待验收）
  * body(JSON): { start_time, end_time?, gps_latitude?, gps_longitude?,
  *               location_address?, fault_reason, repair_action }
  */
@@ -467,7 +467,7 @@ router.put('/:id/repair', requireRole('repairer'), async (req, res, next) => {
     if (order.assigned_repairer_id !== req.user.id) {
       return res.json({ code: 1, message: '该工单未指派给您，无法提交维修记录' });
     }
-    // 状态流转校验：维修中可提交（→待验收）；返修退回可重新提交（→重新审核）
+    // 状态流转校验：维修中可提交（→待验收）；返修退回可重新提交（→待验收）
     if (!['repairing', 'repair_returned'].includes(order.status)) {
       return res.json({
         code: 1,
@@ -475,8 +475,8 @@ router.put('/:id/repair', requireRole('repairer'), async (req, res, next) => {
       });
     }
 
-    // 返修退回的工单重新提交后进入重新审核流程
-    const nextStatus = order.status === 'repair_returned' ? 'pending_review' : 'pending_accept';
+    // 返修退回的工单重新提交后进入待验收流程
+    const nextStatus = 'pending_accept';
 
     // 事务：更新工单状态 + 写入维修记录
     const conn = await pool.getConnection();
