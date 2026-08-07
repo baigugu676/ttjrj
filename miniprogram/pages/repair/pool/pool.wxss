@@ -18,15 +18,21 @@
   min-width: 120rpx;
   padding: 8rpx 18rpx;
   border-radius: 999rpx;
-  font-size: 22rpx;
+  font-size: 24rpx;
   text-align: center;
   color: #FFFFFF;
+  font-weight: 500;
 }
 .status-tag.pending_repair {
   background: #1677FF;
 }
 .status-tag.repair_returned {
   background: #FA5151;
+}
+/* 退回工单卡片：红色左边框 + 淡红底色 */
+.pool-card.repair_returned {
+  border-left: 8rpx solid #FA5151;
+  background: #FFF5F5;
 }
 .pool-location {
   font-size: 30rpx;

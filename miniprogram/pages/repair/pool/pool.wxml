@@ -1,7 +1,7 @@
 <!-- 待维修工单池：待接单/返修工单列表 -->
 <view class="page">
   <view class="list">
-    <view class="pool-card" wx:for="{{list}}" wx:key="id">
+    <view class="pool-card {{item.status}}" wx:for="{{list}}" wx:key="id">
       <view class="pool-top">
         <view class="pool-location">{{item.location_name || '未知点位'}}</view>
         <view class="status-tag {{item.status}}">{{item.status_text}}</view>
