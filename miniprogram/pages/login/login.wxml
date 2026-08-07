@@ -20,16 +20,6 @@
     <button class="btn btn-primary login-btn" bindtap="onLogin" loading="{{logging}}">登 录</button>
   </view>
 
-  <!-- 微信一键登录 -->
-  <view class="divider">
-    <view class="divider-line"></view>
-    <text class="divider-text">其他登录方式</text>
-    <view class="divider-line"></view>
-  </view>
-  <button class="btn btn-light wx-btn" open-type="getUserInfo" bindgetuserinfo="onWxLogin" loading="{{logging}}">
-    微信一键登录
-  </button>
-
   <!-- 测试账号提示 -->
   <view class="tip">
     <view class="tip-title">测试账号</view>
