@@ -6,6 +6,7 @@
         <view class="pool-location">{{item.location_name || '未知点位'}}</view>
         <view class="status-tag {{item.status}}">{{item.status_text}}</view>
       </view>
+      <view class="status-subtext">{{item.status_subtext}}</view>
       <view class="pool-desc">{{item.fault_description}}</view>
       <view class="pool-info">
         <text class="pool-no">{{item.order_no}}</text>

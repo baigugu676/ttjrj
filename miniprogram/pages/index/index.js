@@ -75,7 +75,7 @@ Page({
   loadRepairerHome() {
     const uid = this.data.userInfo.id;
     const today = util.formatTime(new Date(), 'YYYY-MM-DD');
-    const poolReq = api.get('/orders', { status: 'pending_repair', page: 1, pageSize: 3 }, { loading: false }).catch((err) => {
+    const poolReq = api.get('/orders', { status: 'pending_repair,repair_returned', page: 1, pageSize: 3 }, { loading: false }).catch((err) => {
       console.error('[index] 待接单查询失败:', err);
       return {};
     });
@@ -88,7 +88,7 @@ Page({
       return {};
     });
     Promise.all([
-      this.countOrders({ status: 'pending_repair' }),
+      this.countOrders({ status: 'pending_repair,repair_returned' }),
       this.countOrders({ status: 'repairing' }),
       poolReq,
       repairingReq,

@@ -73,10 +73,10 @@
 
     <view class="section">
       <view class="section-head">
-        <text class="section-title">待接单工单</text>
+        <text class="section-title">待处理工单</text>
         <text class="more" bindtap="goPool">进入工单池 ›</text>
       </view>
-      <order-card wx:for="{{poolOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <order-card wx:for="{{poolOrders}}" wx:key="id" order="{{item}}" compact-status="{{true}}" bind:tap="goDetail" />
       <view class="empty" wx:if="{{!poolOrders.length}}">暂无可接的工单</view>
     </view>
 

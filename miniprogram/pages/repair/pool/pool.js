@@ -66,7 +66,8 @@ Page({
   decorate(rows) {
     return rows.map((o) => Object.assign({}, o, {
       created_at_text: util.formatTime(o.created_at),
-      status_text: util.getStatusText(o.status),
+      status_text: o.status === 'repair_returned' ? '返修' : '维修',
+      status_subtext: util.getStatusText(o.status),
       action_text: o.status === 'repair_returned' ? '去返修' : '接 单',
       action_type: o.status === 'repair_returned' ? 'repair' : 'accept'
     }));

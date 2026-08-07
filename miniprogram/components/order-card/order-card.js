@@ -7,6 +7,11 @@ Component({
     order: {
       type: Object,
       value: {}
+    },
+    // 紧凑状态标签：用于维修人员首页/工单池，显示单字框标识
+    compactStatus: {
+      type: Boolean,
+      value: false
     }
   },
 
@@ -19,9 +24,21 @@ Component({
   observers: {
     'order': function (order) {
       if (!order || !order.id) return;
+      const compact = !!this.properties.compactStatus;
+      let statusText = util.getStatusText(order.status);
+      let statusTextClass = order.status || '';
+      if (compact) {
+        if (order.status === 'pending_repair') {
+          statusText = '维';
+          statusTextClass = 'pending_repair compact';
+        } else if (order.status === 'repair_returned') {
+          statusText = '返';
+          statusTextClass = 'repair_returned compact';
+        }
+      }
       this.setData({
-        statusText: util.getStatusText(order.status),
-        statusTextClass: order.status || '',
+        statusText,
+        statusTextClass,
         timeText: util.formatTime(order.created_at || order.createdAt)
       });
     }

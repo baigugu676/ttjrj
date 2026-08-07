@@ -131,6 +131,22 @@ page {
   font-size: 22rpx;
   line-height: 1.6;
 }
+.status-tag.compact {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44rpx;
+  height: 44rpx;
+  padding: 0;
+  border-width: 2rpx;
+  border-style: solid;
+  border-radius: 10rpx;
+  background: transparent !important;
+  border-color: currentColor;
+  line-height: 1;
+  font-size: 26rpx;
+  font-weight: 600;
+}
 .status-tag.pending_review {
   color: #FF9500;
   background: rgba(255, 149, 0, 0.12);

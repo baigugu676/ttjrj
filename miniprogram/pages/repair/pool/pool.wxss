@@ -15,10 +15,11 @@
   align-items: center;
 }
 .status-tag {
-  min-width: 120rpx;
-  padding: 8rpx 18rpx;
+  width: 56rpx;
+  height: 56rpx;
   border-radius: 999rpx;
-  font-size: 24rpx;
+  line-height: 56rpx;
+  font-size: 30rpx;
   text-align: center;
   color: #FFFFFF;
   font-weight: 500;
@@ -38,6 +39,11 @@
   font-size: 30rpx;
   font-weight: 600;
   color: #333333;
+}
+.status-subtext {
+  margin-top: 8rpx;
+  font-size: 22rpx;
+  color: #999999;
 }
 .pool-desc {
   font-size: 26rpx;
