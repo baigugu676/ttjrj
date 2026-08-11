@@ -151,22 +151,10 @@ CREATE TABLE notifications (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='通知表';
 
 -- ------------------------------------------------------------
--- 预置测试账号（密码已使用 bcrypt 加密）
--- admin     / admin123 / 管理员 / 管理员A
--- zhangsan  / 123456   / 报修用户 / 张三
--- lisi      / 123456   / 报修用户 / 李四
--- repairer1 / 123456   / 维修人员 / 维修员小刘
--- repairer2 / 123456   / 维修人员 / 维修员老陈
--- ------------------------------------------------------------
-INSERT INTO users (username, password_hash, real_name, role, phone) VALUES
-('admin',     '$2a$10$GUOFN430W489ukEerwpBle9m64q8sw5VcNk1uJxMwNckJYwQ9CNOi', '管理员A',   'admin',    '13800000001'),
-('zhangsan',  '$2a$10$yQU9qNy1u9N6q/lJE4ryAuggPSLskJ99dOolX/BA270w9.cRAUsiu', '张三',      'user',     '13800000002'),
-('lisi',      '$2a$10$yQU9qNy1u9N6q/lJE4ryAuggPSLskJ99dOolX/BA270w9.cRAUsiu', '李四',      'user',     '13800000003'),
-('repairer1', '$2a$10$yQU9qNy1u9N6q/lJE4ryAuggPSLskJ99dOolX/BA270w9.cRAUsiu', '维修员小刘', 'repairer', '13800000004'),
-('repairer2', '$2a$10$yQU9qNy1u9N6q/lJE4ryAuggPSLskJ99dOolX/BA270w9.cRAUsiu', '维修员老陈', 'repairer', '13800000005');
+-- 用户数据（管理员、报修用户和维修人员）请通过后台创建，避免在代码库中保存凭据。
 
 -- ------------------------------------------------------------
--- 预置5个故障点位
+-- 预置300个监控点位
 -- ------------------------------------------------------------
 INSERT INTO locations (name, area, device_type, sort_order, status) VALUES
 ('3号楼道摄像头-01',  '3号楼',  '摄像头', 1, 'active'),
@@ -174,3 +162,17 @@ INSERT INTO locations (name, area, device_type, sort_order, status) VALUES
 ('停车场摄像头-02',  '停车场', '摄像头', 3, 'active'),
 ('2号楼道摄像头-01',  '2号楼',  '摄像头', 4, 'active'),
 ('围墙报警器-05',    '围墙',   '报警器', 5, 'active');
+
+-- 生成第 6-300 个监控点位
+INSERT INTO locations (name, area, device_type, sort_order, status)
+WITH RECURSIVE seq AS (
+  SELECT 6 AS n
+  UNION ALL
+  SELECT n + 1 FROM seq WHERE n < 300
+)
+SELECT CONCAT('监控点位-', LPAD(n, 3, '0')),
+       CONCAT('区域', ((n - 1) % 10) + 1),
+       '摄像头',
+       n,
+       'active'
+FROM seq;
