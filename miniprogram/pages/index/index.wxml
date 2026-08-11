@@ -48,7 +48,7 @@
     <view class="stats">
       <view class="stat-item" bindtap="goPool">
         <view class="num">{{stats.pendingAccept || 0}}</view>
-        <view class="label">待接单</view>
+        <view class="label">待处理</view>
       </view>
       <view class="stat-item" bindtap="goMyTasks">
         <view class="num">{{stats.repairing || 0}}</view>
@@ -62,7 +62,7 @@
 
     <view class="quick-row">
       <view class="quick-item" bindtap="goPool">
-        <view class="quick-title">待接单工单池</view>
+        <view class="quick-title">待处理工单池</view>
         <view class="badge" wx:if="{{stats.pendingAccept}}">{{stats.pendingAccept}}</view>
       </view>
       <view class="quick-item" bindtap="goMyTasks">

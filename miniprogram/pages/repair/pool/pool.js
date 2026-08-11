@@ -24,8 +24,8 @@ Page({
   },
 
   onShow() {
-    // 从详情返回时刷新
-    if (this.data.list.length && getApp().getRole() === 'repairer') {
+    // 从详情返回时刷新（即使列表为空也要刷新，确保新退回的工单能立即显示）
+    if (getApp().getRole() === 'repairer') {
       this.loadList(true);
     }
   },

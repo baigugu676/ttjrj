@@ -15,7 +15,7 @@
  *                                       │                          │
  *                                       │              repair_returned
  *                                       │                    │
- *                                       └── 重新审核 ◀───────┘（维修人员重新提交后）
+ *                                       └── 重新提交维修 ───┘（维修人员重新提交后直接进入待验收）
  *
  * 权限：所有接口需登录；审核/验收/删除仅 admin；接单/提交维修仅 repairer。
  * 数据权限：admin 看全部；user 只看自己提交的；repairer 只看指派给自己的。
@@ -181,6 +181,10 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       if (repairerId) {
         await sendNotification(repairerId, orderId, orderNo, 'order_returned', '验收退回返修',
           `您维修的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}，请返修处理。`);
+      }
+      if (reporterId) {
+        await sendNotification(reporterId, orderId, orderNo, 'order_returned', '工单验收退回',
+          `您的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}，维修人员将重新维修。`);
       }
       break;
     }

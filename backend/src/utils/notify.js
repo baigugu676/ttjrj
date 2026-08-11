@@ -10,7 +10,7 @@
  *     - action: 'accepted_repair' 维修接单       → 通知报修用户
  *     - action: 'repair_done'    维修完成        → 通知管理员
  *     - action: 'accepted'       验收通过        → 通知维修人员
- *     - action: 'returned'       验收退回返修    → 通知维修人员
+ *     - action: 'returned'       验收退回返修    → 通知维修人员 + 报修用户
  */
 const pool = require('../config/db');
 
@@ -101,10 +101,14 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       break;
     }
     case 'returned': {
-      // 验收退回 → 通知维修人员返修
+      // 验收退回 → 通知维修人员返修 + 通知报修用户
       if (repairerId) {
         await sendNotification(repairerId, orderId, 'order_returned', '验收退回返修',
           `您维修的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}，请返修处理。`);
+      }
+      if (reporterId) {
+        await sendNotification(reporterId, orderId, 'order_returned', '工单验收退回',
+          `您的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}，维修人员将重新维修。`);
       }
       break;
     }
