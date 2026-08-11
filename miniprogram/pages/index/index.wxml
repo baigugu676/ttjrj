@@ -1,6 +1,5 @@
 <!-- 首页：按角色动态展示（报修用户 / 维修人员 / 管理员） -->
 <view class="page">
-
   <!-- ============ 报修用户首页 ============ -->
   <block wx:if="{{role === 'user'}}">
     <view class="hero">
@@ -160,4 +159,6 @@
       <view class="empty" wx:if="{{!latestOrders.length}}">暂无工单</view>
     </view>
   </block>
+
+  <view class="monitor-overview-entry" bindtap="openMonitorOverview"><text>查看监控状态概览</text><text class="monitor-overview-arrow">›</text></view>
 </view>

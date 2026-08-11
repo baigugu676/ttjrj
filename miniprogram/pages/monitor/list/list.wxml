@@ -1,0 +1,16 @@
+<view class="page">
+  <view class="search"><input value="{{keyword}}" confirm-type="search" placeholder="搜索监控名称、区域或设备类型" bindconfirm="onSearch" bindinput="onSearch" /></view>
+  <scroll-view class="filters" scroll-x>
+    <view wx:for="{{statuses}}" wx:key="key" class="filter {{status === item.key ? 'active' : ''}}" data-status="{{item.key}}" bindtap="chooseStatus">{{item.text}}</view>
+  </scroll-view>
+  <view wx:if="{{loading}}" class="state">加载中...</view>
+  <view wx:elif="{{error}}" class="state error" bindtap="retry">{{error}}<text class="retry"> 点击重试</text></view>
+  <view wx:elif="{{!monitors.length}}" class="state">暂无符合条件的监控</view>
+  <view wx:else class="list">
+    <view wx:for="{{monitors}}" wx:key="id" class="monitor" data-id="{{item.id}}" bindtap="openDetail">
+      <view class="monitor-head"><text class="name">{{item.name}}</text><text class="tag" style="color:{{item.statusColor}};border-color:{{item.statusColor}}">{{item.statusText}}</text></view>
+      <view class="meta">{{item.area || '未设置区域'}} · {{item.device_type || '未设置类型'}}</view>
+      <view class="summary"><text>故障工单 {{item.openOrderCount || 0}}</text><text>总工单 {{item.totalOrderCount || 0}}</text><text>{{item.lastActionText}}</text></view>
+    </view>
+  </view>
+</view>

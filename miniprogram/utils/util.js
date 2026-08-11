@@ -28,6 +28,41 @@ const ROLE_MAP = {
   repairer: '维修人员'
 };
 
+const MONITOR_STATUS_MAP = {
+  normal: { text: '正常', color: '#16a34a' },
+  fault: { text: '故障中', color: '#ef4444' },
+  repairing: { text: '维修中', color: '#f59e0b' }
+};
+const MONITOR_ACTION_MAP = {
+  submitted: '提交报修',
+  approved: '审核通过',
+  rejected: '审核驳回',
+  accepted_repair: '维修人员接单',
+  repair_done: '提交维修记录',
+  accepted: '验收通过',
+  returned: '验收退回',
+  deleted: '删除工单',
+  updated: '更新工单'
+};
+
+function getMonitorStatusText(status) {
+  return (MONITOR_STATUS_MAP[status] || {}).text || '未知状态';
+}
+
+function getMonitorStatusColor(status) {
+  return (MONITOR_STATUS_MAP[status] || {}).color || '#999999';
+}
+
+function getMonitorActionText(action) {
+  return MONITOR_ACTION_MAP[action] || action || '状态变更';
+}
+
+function formatPercent(value) {
+  const n = Number(value);
+  const formatted = (Number.isFinite(n) ? n : 0).toFixed(2).replace(/(\.\d*?)0+$/, '$1').replace(/\.$/, '');
+  return formatted + '%';
+}
+
 // 数字补零
 function formatNumber(n) {
   return n < 10 ? '0' + n : '' + n;
@@ -77,13 +112,13 @@ function formatTime(input, fmt) {
 
 // 状态码转中文
 function getStatusText(status) {
-  const info = STATUS_MAP[status];
+  const info = STATUS_MAP[status] || MONITOR_STATUS_MAP[status];
   return info ? info.text : '未知状态';
 }
 
 // 状态对应的颜色
 function getStatusColor(status) {
-  const info = STATUS_MAP[status];
+  const info = STATUS_MAP[status] || MONITOR_STATUS_MAP[status];
   return info ? info.color : '#999999';
 }
 
@@ -250,10 +285,16 @@ function previewImages(urls, current) {
 module.exports = {
   STATUS_MAP,
   ROLE_MAP,
+  MONITOR_STATUS_MAP,
+  MONITOR_ACTION_MAP,
   formatTime,
   getStatusText,
   getStatusColor,
   getRoleText,
+  getMonitorStatusText,
+  getMonitorStatusColor,
+  getMonitorActionText,
+  formatPercent,
   resolveImageUrl,
   splitImages,
   getRepairRecord,

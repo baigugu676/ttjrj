@@ -31,6 +31,14 @@ test('受保护接口缺少 token 返回 401', async () => {
   assert.equal(body.message, '未登录或 token 缺失');
 });
 
+test('监控只读接口均要求登录', async () => {
+  for (const path of ['/api/locations/monitor-overview', '/api/locations/monitor-status', '/api/locations/1/monitor-detail']) {
+    const { response, body } = await request(server.url, path);
+    assert.equal(response.status, 401, path);
+    assert.equal(body.code, 1, path);
+  }
+});
+
 test('非法 token 返回 401', async () => {
   const { response, body } = await request(server.url, '/api/auth/me', {
     headers: { authorization: 'Bearer invalid-token' }

@@ -1,0 +1,10 @@
+<view class="page">
+  <view wx:if="{{loading}}" class="state">加载中...</view>
+  <view wx:elif="{{error}}" class="state error" bindtap="retry">{{error}}<text class="retry"> 点击重试</text></view>
+  <block wx:elif="{{detail}}">
+    <view class="hero"><view class="title">{{detail.name}}</view><view class="sub">{{detail.area || '未设置区域'}} · {{detail.device_type || '未设置类型'}}</view><view class="status" style="color:{{detail.statusColor}}">{{detail.statusText}}</view></view>
+    <view class="metrics"><view><text>{{detail.metrics.totalOrders}}</text><label>总工单</label></view><view><text>{{detail.metrics.completedOrders}}</text><label>已完成</label></view><view><text>{{detail.metrics.faultOrders}}</text><label>故障中</label></view><view><text>{{detail.metrics.averageRepairDuration || 0}}</text><label>平均分钟</label></view></view><view class="recent">最近维修：{{detail.recentRepairText}}</view>
+    <view class="section"><view class="section-title">关联工单</view><view wx:if="{{!detail.orders.length}}" class="empty">暂无历史工单</view><view wx:for="{{detail.orders}}" wx:key="id" class="order" data-id="{{item.id}}" bindtap="openOrder"><view><text class="order-no">{{item.orderNo || item.order_no}}</text><text class="order-status">{{item.statusText}}</text></view><view class="order-meta">报修：{{item.reporterName || '未知'}}　维修：{{item.repairerName || '未指派'}}</view><view class="order-time">创建 {{item.createdText}} · 更新 {{item.updatedText}}</view></view></view>
+    <view class="section"><view class="section-title">维修历史</view><view wx:if="{{!timeline.length}}" class="empty">暂无动作记录</view><view wx:for="{{timeline}}" wx:key="index" class="event"><view class="dot"></view><view class="event-body"><view class="event-head"><text>{{item.actionText}}</text><text class="event-time">{{item.timeText}}</text></view><view class="actor">{{item.actorName || '未知操作者'}} · {{item.roleText}}</view><view class="desc">{{item.description || '无备注'}}</view></view></view></view>
+  </block>
+</view>

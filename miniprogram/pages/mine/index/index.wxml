@@ -21,6 +21,11 @@
       </view>
       <text class="arrow">›</text>
     </view>
+    <view class="menu-item" bindtap="goPage" data-url="/pages/monitor/overview/overview">
+      <text class="menu-icon">📊</text>
+      <text class="menu-text">监控状态概览</text>
+      <text class="arrow">›</text>
+    </view>
 
     <!-- 报修用户 -->
     <block wx:if="{{role === 'user'}}">

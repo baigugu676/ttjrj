@@ -64,6 +64,7 @@ CREATE TABLE work_orders (
   updated_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
   UNIQUE KEY uk_order_no (order_no),
   KEY idx_status (status),
+  KEY idx_location_status (location_id, status),
   KEY idx_reporter_id (reporter_id),
   KEY idx_location_id (location_id),
   KEY idx_assigned_repairer_id (assigned_repairer_id),
@@ -107,6 +108,7 @@ CREATE TABLE repair_records (
   repair_action    TEXT DEFAULT NULL COMMENT '维修措施',
   created_at       DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   KEY idx_order_id (order_id),
+  KEY idx_order_created_at (order_id, created_at),
   KEY idx_repairer_id (repairer_id),
   CONSTRAINT fk_rr_order    FOREIGN KEY (order_id)    REFERENCES work_orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_rr_repairer FOREIGN KEY (repairer_id) REFERENCES users (id)
@@ -123,6 +125,7 @@ CREATE TABLE acceptance_records (
   return_reason VARCHAR(500) DEFAULT NULL COMMENT '退回原因',
   accepted_at   DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '验收时间',
   KEY idx_order_id (order_id),
+  KEY idx_order_accepted_at (order_id, accepted_at),
   KEY idx_reviewer_id (reviewer_id),
   CONSTRAINT fk_ar_order    FOREIGN KEY (order_id)    REFERENCES work_orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_ar_reviewer FOREIGN KEY (reviewer_id) REFERENCES users (id)

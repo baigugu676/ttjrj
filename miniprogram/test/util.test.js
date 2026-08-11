@@ -37,3 +37,10 @@ test('buildTimelineSteps 反映已完成和驳回状态', () => {
   assert.equal(rejected[1].desc, '信息不完整');
 });
 
+test('监控状态与百分比辅助函数返回稳定文案', () => {
+  assert.equal(util.getMonitorStatusText('normal'), '正常');
+  assert.equal(util.getMonitorStatusColor('fault'), '#ef4444');
+  assert.equal(util.getMonitorActionText('repair_done'), '提交维修记录');
+  assert.equal(util.formatPercent(75), '75%');
+  assert.equal(util.formatPercent(12.5), '12.5%');
+});

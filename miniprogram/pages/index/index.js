@@ -140,6 +140,10 @@ Page({
   },
 
   // ===== 跳转 =====
+  openMonitorOverview() {
+    wx.navigateTo({ url: '/pages/monitor/overview/overview' });
+  },
+
   // 报修用户：新建报修
   goCreate() {
     wx.navigateTo({ url: '/pages/report/create/create' });
@@ -156,8 +160,8 @@ Page({
   goDetail(e) {
     const id = e.detail.id;
     const url = this.data.role === 'admin'
-      ? '/pages/admin/order-detail?id=' + id
-      : '/pages/report/detail?id=' + id;
+      ? '/pages/admin/order-detail/order-detail?id=' + id
+      : '/pages/report/detail/detail?id=' + id;
     wx.navigateTo({ url });
   },
 

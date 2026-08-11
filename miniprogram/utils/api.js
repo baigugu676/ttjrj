@@ -123,6 +123,15 @@ function resolveTarget(method, url, data) {
   // /locations...
   if (first === 'locations') {
     const id = segs[1];
+    if (segs[1] === 'monitor-overview' && method === 'GET') {
+      return { name: 'locations', data: { action: 'monitorOverview' } };
+    }
+    if (segs[1] === 'monitor-status' && method === 'GET') {
+      return { name: 'locations', data: Object.assign({ action: 'monitorStatus' }, data) };
+    }
+    if (segs[2] === 'monitor-detail' && method === 'GET') {
+      return { name: 'locations', data: { action: 'monitorDetail', id: segs[1] } };
+    }
     if (!id) {
       if (method === 'GET') return { name: 'locations', data: { action: 'list' } };
       if (method === 'POST') return { name: 'locations', data: Object.assign({ action: 'create' }, data) };
@@ -265,6 +274,15 @@ module.exports = {
   },
   del(url, options) {
     return request('DELETE', url, {}, options);
+  },
+  getMonitorOverview(options) {
+    return request('GET', '/locations/monitor-overview', {}, options);
+  },
+  getMonitorStatus(params, options) {
+    return request('GET', '/locations/monitor-status', params || {}, options);
+  },
+  getMonitorDetail(id, options) {
+    return request('GET', '/locations/' + id + '/monitor-detail', {}, options);
   },
   upload
 };

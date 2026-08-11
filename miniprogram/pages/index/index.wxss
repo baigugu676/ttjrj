@@ -51,6 +51,7 @@
 .section {
   margin: 32rpx 24rpx 0;
 }
+.monitor-overview-entry{display:flex;align-items:center;justify-content:space-between;margin:32rpx 24rpx 48rpx;padding:28rpx 24rpx;background:#fff;border-radius:16rpx;box-shadow:0 2rpx 12rpx rgba(0,0,0,.04);color:#07c160;font-size:28rpx}.monitor-overview-arrow{font-size:36rpx;line-height:1;color:#999}
 
 /* 维修人员快捷入口 */
 .quick-row {

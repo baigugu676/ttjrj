@@ -14,6 +14,7 @@ const cloud = require('wx-server-sdk');
 
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
+const _ = db.command;
 
 function ok(data) {
   return { code: 0, message: 'success', data };
@@ -21,6 +22,89 @@ function ok(data) {
 
 function fail(message, code = 1) {
   return { code, message };
+}
+
+const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
+const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
+const STATUS_TEXT = { normal: '正常', fault: '故障中', repairing: '维修中' };
+const classify = (orders) => {
+  const open = orders.filter((o) => OPEN_STATUSES.includes(o.status));
+  if (open.some((o) => REPAIRING_STATUSES.includes(o.status))) return 'repairing';
+  return open.length ? 'fault' : 'normal';
+};
+
+async function monitorRows() {
+  const locRes = await db.collection('locations').where({ status: 'active' }).limit(1000).get();
+  const locations = locRes.data || [];
+  const orderRes = await db.collection('work_orders').limit(1000).get();
+  const activeIds = new Set(locations.map((l) => String(l._id)));
+  const orders = (orderRes.data || []).filter((o) => activeIds.has(String(o.location_id)));
+  return { locations, orders };
+}
+
+function mapMonitor(location, orders) {
+  const status = classify(orders);
+  const open = orders.filter((o) => OPEN_STATUSES.includes(o.status));
+  const dates = orders.map((o) => o.updated_at || o.created_at).filter(Boolean).map((d) => new Date(d).getTime()).filter(Number.isFinite);
+  return { id: location._id, name: location.name, area: location.area || '', device_type: location.device_type || '', status,
+    statusText: STATUS_TEXT[status], openOrderCount: open.length, totalOrderCount: orders.length,
+    lastActionAt: dates.length ? new Date(Math.max(...dates)).toISOString() : null };
+}
+
+async function monitorDetail(id) {
+  const locRes = await db.collection('locations').doc(id).get();
+  const location = locRes.data;
+  if (!location) return null;
+  const orderRes = await db.collection('work_orders').where({ location_id: id }).limit(1000).get();
+  const orders = orderRes.data || [];
+  const orderIds = orders.map((o) => o._id);
+  const repairs = [];
+  const accepts = [];
+  for (const oid of orderIds) {
+    const rr = await db.collection('repair_records').where({ order_id: oid }).limit(1000).get();
+    repairs.push(...(rr.data || []));
+    const ar = await db.collection('acceptance_records').where({ order_id: oid }).limit(1000).get();
+    accepts.push(...(ar.data || []));
+  }
+  const actorIds = [...new Set([
+    ...orders.flatMap((o) => [o.reporter_id, o.assigned_repairer_id, o.reviewer_id]),
+    ...repairs.map((r) => r.repairer_id),
+    ...accepts.map((a) => a.reviewer_id)
+  ].filter(Boolean).map(String))];
+  const userNames = new Map();
+  if (actorIds.length) {
+    const userRes = await db.collection('users').where({ _id: _.in(actorIds) }).limit(1000).get();
+    (userRes.data || []).forEach((u) => userNames.set(String(u._id), u.real_name || u.username || ''));
+  }
+  const nameOf = (idValue, fallback) => fallback || userNames.get(String(idValue)) || '';
+  const timeline = [];
+  const actor = (idValue, name, role) => ({ actorId: idValue || null, actorName: name || '', actorRole: role });
+  for (const o of orders) {
+    timeline.push({ time: o.created_at, action: 'submitted', description: o.fault_description || '提交报修', orderId: o._id,
+      ...actor(o.reporter_id, nameOf(o.reporter_id, o.reporter_name), 'user') });
+    if (o.reviewed_at && o.reviewer_id) {
+      const rejected = o.status === 'rejected' || o.reject_reason;
+      timeline.push({ time: o.reviewed_at, action: rejected ? 'rejected' : 'approved', description: rejected ? (o.reject_reason || o.review_comment || '管理员驳回工单') : (o.review_comment || '管理员审核通过'), orderId: o._id,
+        ...actor(o.reviewer_id, nameOf(o.reviewer_id, o.reviewer_name), 'admin') });
+    }
+    repairs.filter((r) => r.order_id === o._id).forEach((r) => {
+      if (r.start_time) timeline.push({ time: r.start_time, action: 'accepted_repair', description: '维修人员接单，开始维修', orderId: o._id,
+        ...actor(r.repairer_id, nameOf(r.repairer_id, r.repairer_name || o.repairer_name), 'repairer') });
+      timeline.push({ time: r.created_at, action: 'repair_done', description: [r.fault_reason, r.repair_action].filter(Boolean).join('；') || '提交维修记录', orderId: o._id,
+        ...actor(r.repairer_id, nameOf(r.repairer_id, r.repairer_name || o.repairer_name), 'repairer') });
+    });
+    accepts.filter((a) => a.order_id === o._id).forEach((a) => timeline.push({ time: a.accepted_at, action: a.result === 'pass' ? 'accepted' : 'returned', description: a.result === 'pass' ? '管理员验收通过' : (a.return_reason || '管理员退回维修'), orderId: o._id,
+      ...actor(a.reviewer_id, nameOf(a.reviewer_id, a.reviewer_name), 'admin') }));
+  }
+  timeline.sort((a, b) => new Date(a.time) - new Date(b.time));
+  const durations = repairs.map((r) => new Date(r.end_time || r.created_at) - new Date(r.start_time || r.created_at)).filter((d) => Number.isFinite(d) && d >= 0);
+  const recent = repairs.map((r) => r.end_time || r.created_at).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0] || null;
+  const status = classify(orders);
+  return { location: { id: location._id, name: location.name, area: location.area || '', device_type: location.device_type || '', status: location.status },
+    id: location._id, name: location.name, area: location.area || '', device_type: location.device_type || '', status, statusText: STATUS_TEXT[status],
+    openOrderCount: orders.filter((o) => OPEN_STATUSES.includes(o.status)).length, totalOrderCount: orders.length, lastActionAt: orders.length ? (orders.map((o) => o.updated_at || o.created_at).filter(Boolean).sort((a, b) => new Date(b) - new Date(a))[0] || null) : null,
+    metrics: { totalOrders: orders.length, completedOrders: orders.filter((o) => o.status === 'completed').length, faultOrders: orders.filter((o) => OPEN_STATUSES.includes(o.status)).length, recentRepairAt: recent, averageRepairDuration: durations.length ? Math.round(durations.reduce((a, b) => a + b, 0) / durations.length / 60000) : 0 },
+    orders: orders.map((o) => ({ id: o._id, orderNo: o.order_no, order_no: o.order_no, status: o.status, reporterId: o.reporter_id, reporterName: nameOf(o.reporter_id, o.reporter_name), repairerId: o.assigned_repairer_id, repairerName: nameOf(o.assigned_repairer_id, o.repairer_name), createdAt: o.created_at, updatedAt: o.updated_at })), timeline };
 }
 
 async function getCurrentUser(event) {
@@ -74,6 +158,32 @@ exports.main = async (event) => {
       }
 
       return ok(res.data.map((l) => ({ ...l, id: l._id })));
+    }
+
+    if (action === 'monitorOverview' || action === 'monitorStatus') {
+      const { locations, orders } = await monitorRows();
+      const grouped = new Map(locations.map((l) => [String(l._id), []]));
+      orders.forEach((o) => { const bucket = grouped.get(String(o.location_id)); if (bucket) bucket.push(o); });
+      const list = locations.map((l) => mapMonitor(l, grouped.get(String(l._id)) || []));
+      if (action === 'monitorStatus') {
+        const keyword = event.keyword ? String(event.keyword).trim().toLowerCase() : '';
+        const filtered = list.filter((m) => (!keyword || `${m.name} ${m.area} ${m.device_type}`.toLowerCase().includes(keyword)) && (!event.status || m.status === event.status));
+        return ok(filtered);
+      }
+      const total = list.length;
+      const normal = list.filter((m) => m.status === 'normal').length;
+      const fault = list.filter((m) => m.status === 'fault').length;
+      const repairing = list.filter((m) => m.status === 'repairing').length;
+      return ok({ total, normal, fault, repairing, completedOrders: orders.filter((o) => o.status === 'completed').length,
+        normalRate: total ? Math.round(normal * 10000 / total) / 100 : 0,
+        faultRate: total ? Math.round((fault + repairing) * 10000 / total) / 100 : 0,
+        segments: [{ key: 'normal', label: '正常', value: normal, color: '#16a34a' }, { key: 'fault', label: '故障中', value: fault, color: '#ef4444' }, { key: 'repairing', label: '维修中', value: repairing, color: '#f59e0b' }] });
+    }
+
+    if (action === 'monitorDetail') {
+      if (!event.id) return fail('点位ID不合法');
+      const detail = await monitorDetail(String(event.id));
+      return detail ? ok(detail) : fail('点位不存在');
     }
 
     // 以下操作仅管理员
