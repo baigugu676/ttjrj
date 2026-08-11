@@ -62,20 +62,3 @@
   width: 100%;
 }
 
-.tip {
-  margin-top: 60rpx;
-  background: #FFFFFF;
-  border-radius: 16rpx;
-  padding: 24rpx 32rpx;
-}
-.tip-title {
-  font-size: 26rpx;
-  font-weight: 600;
-  color: #333333;
-  margin-bottom: 12rpx;
-}
-.tip-item {
-  font-size: 24rpx;
-  color: #999999;
-  line-height: 1.8;
-}

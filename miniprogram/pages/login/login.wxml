@@ -20,11 +20,4 @@
     <button class="btn btn-primary login-btn" bindtap="onLogin" loading="{{logging}}">登 录</button>
   </view>
 
-  <!-- 测试账号提示 -->
-  <view class="tip">
-    <view class="tip-title">测试账号</view>
-    <view class="tip-item">管理员：admin / admin123</view>
-    <view class="tip-item">报修用户：zhangsan / 123456</view>
-    <view class="tip-item">维修人员：repairer1 / 123456</view>
-  </view>
 </view>
