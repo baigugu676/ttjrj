@@ -38,6 +38,7 @@ const cloud = require('wx-server-sdk');
 cloud.init({ env: cloud.DYNAMIC_CURRENT_ENV });
 const db = cloud.database();
 const _ = db.command;
+const $ = db.command.aggregate;
 
 const statusMap = {
   pending_review: '待审核',
@@ -48,6 +49,9 @@ const statusMap = {
   rejected: '已驳回',
   repair_returned: '返修退回'
 };
+
+const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
+const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
 
 function ok(data) {
   return { code: 0, message: 'success', data };
@@ -80,6 +84,162 @@ async function getOrder(id) {
   } catch (e) {
     return null;
   }
+}
+
+function todayStart() {
+  const now = new Date();
+  const beijing = new Date(now.getTime() + 8 * 3600 * 1000);
+  return new Date(Date.UTC(
+    beijing.getUTCFullYear(),
+    beijing.getUTCMonth(),
+    beijing.getUTCDate()
+  ) - 8 * 3600 * 1000);
+}
+
+function monthStart() {
+  const now = new Date();
+  const beijing = new Date(now.getTime() + 8 * 3600 * 1000);
+  return new Date(Date.UTC(
+    beijing.getUTCFullYear(),
+    beijing.getUTCMonth(),
+    1
+  ) - 8 * 3600 * 1000);
+}
+
+function countByStatus(groups) {
+  const counts = {};
+  (groups || []).forEach((group) => {
+    counts[group._id] = Number(group.count) || 0;
+  });
+  return counts;
+}
+
+function toOrderSummary(order) {
+  return {
+    id: order._id,
+    order_no: order.order_no,
+    location_name: order.location_name,
+    fault_description: order.fault_description,
+    status: order.status,
+    created_at: order.created_at,
+    updated_at: order.updated_at
+  };
+}
+
+async function getMonitorOverviewSummary() {
+  const [locationsRes, ordersRes] = await Promise.all([
+    db.collection('locations').where({ status: 'active' }).field({ _id: true }).limit(1000).get(),
+    db.collection('work_orders').field({ location_id: true, status: true }).limit(1000).get()
+  ]);
+  const locationStates = new Map((locationsRes.data || []).map((location) => [String(location._id), 'normal']));
+  const activeLocationIds = new Set(locationStates.keys());
+
+  (ordersRes.data || []).forEach((order) => {
+    const locationId = String(order.location_id);
+    if (!activeLocationIds.has(locationId) || !OPEN_STATUSES.includes(order.status)) return;
+    if (REPAIRING_STATUSES.includes(order.status)) {
+      locationStates.set(locationId, 'repairing');
+    } else if (locationStates.get(locationId) === 'normal') {
+      locationStates.set(locationId, 'fault');
+    }
+  });
+
+  const total = locationStates.size;
+  let normal = 0;
+  let fault = 0;
+  let repairing = 0;
+  locationStates.forEach((status) => {
+    if (status === 'repairing') repairing += 1;
+    else if (status === 'fault') fault += 1;
+    else normal += 1;
+  });
+  return {
+    total,
+    normal,
+    fault,
+    repairing,
+    normalRate: total ? Math.round(normal * 10000 / total) / 100 : 0,
+    faultRate: total ? Math.round((fault + repairing) * 10000 / total) / 100 : 0,
+    segments: [
+      { key: 'normal', label: '正常', value: normal, color: '#16a34a' },
+      { key: 'fault', label: '故障中', value: fault, color: '#ef4444' },
+      { key: 'repairing', label: '维修中', value: repairing, color: '#f59e0b' }
+    ]
+  };
+}
+
+async function getDashboard(user) {
+  if (user.role === 'user') {
+    const filter = { reporter_id: user._id };
+    const [statusRes, recentRes] = await Promise.all([
+      db.collection('work_orders').aggregate().match(filter).group({ _id: '$status', count: $.sum(1) }).end(),
+      db.collection('work_orders').where(filter).field({
+        order_no: true, location_name: true, fault_description: true, status: true, created_at: true, updated_at: true
+      }).orderBy('created_at', 'desc').limit(3).get()
+    ]);
+    const counts = countByStatus(statusRes.list);
+    return {
+      stats: {
+        pendingReview: counts.pending_review || 0,
+        pendingRepair: counts.pending_repair || 0,
+        repairing: counts.repairing || 0,
+        completed: counts.completed || 0
+      },
+      recentOrders: (recentRes.data || []).map(toOrderSummary)
+    };
+  }
+
+  if (user.role === 'repairer') {
+    const assignedFilter = { assigned_repairer_id: user._id };
+    const start = todayStart();
+    const [statusRes, poolRes, repairingRes, todayCompletedRes] = await Promise.all([
+      db.collection('work_orders').aggregate().match(assignedFilter).group({ _id: '$status', count: $.sum(1) }).end(),
+      db.collection('work_orders').where({
+        assigned_repairer_id: user._id,
+        status: _.in(['pending_repair', 'repair_returned'])
+      }).field({ order_no: true, location_name: true, fault_description: true, status: true, created_at: true, updated_at: true })
+        .orderBy('created_at', 'desc').limit(3).get(),
+      db.collection('work_orders').where({ assigned_repairer_id: user._id, status: 'repairing' })
+        .field({ order_no: true, location_name: true, fault_description: true, status: true, created_at: true, updated_at: true })
+        .orderBy('created_at', 'desc').limit(3).get(),
+      db.collection('work_orders').where({
+        assigned_repairer_id: user._id,
+        status: 'completed',
+        updated_at: _.gte(start)
+      }).count()
+    ]);
+    const counts = countByStatus(statusRes.list);
+    return {
+      stats: {
+        pendingAccept: (counts.pending_repair || 0) + (counts.repair_returned || 0),
+        repairing: counts.repairing || 0,
+        todayCompleted: todayCompletedRes.total || 0
+      },
+      poolOrders: (poolRes.data || []).map(toOrderSummary),
+      repairingOrders: (repairingRes.data || []).map(toOrderSummary)
+    };
+  }
+
+  const [statusRes, latestRes, monthCompletedRes, monitorOverview] = await Promise.all([
+    db.collection('work_orders').aggregate().group({ _id: '$status', count: $.sum(1) }).end(),
+    db.collection('work_orders').field({
+      order_no: true, location_name: true, fault_description: true, status: true, created_at: true, updated_at: true
+    }).orderBy('created_at', 'desc').limit(5).get(),
+    db.collection('acceptance_records').where({ result: 'pass', accepted_at: _.gte(monthStart()) }).count(),
+    getMonitorOverviewSummary()
+  ]);
+  const counts = countByStatus(statusRes.list);
+  return {
+    stats: {
+      pendingReview: counts.pending_review || 0,
+      pendingRepair: counts.pending_repair || 0,
+      pendingAccept: counts.pending_accept || 0,
+      repairReturned: counts.repair_returned || 0,
+      monthCompleted: monthCompletedRes.total || 0
+    },
+    latestOrders: (latestRes.data || []).map(toOrderSummary),
+    monitorOverview
+  };
 }
 
 // 当前北京时间（UTC+8）的工单号前缀：WO20260801
@@ -198,6 +358,10 @@ exports.main = async (event) => {
     const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
     const { action } = event || {};
+
+    if (action === 'dashboard') {
+      return ok(await getDashboard(user));
+    }
 
     // 工单列表
     if (action === 'list') {

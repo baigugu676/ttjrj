@@ -9,6 +9,8 @@ const util = require('../../../utils/util.js');
 Page({
   data: {
     locations: [],        // 点位列表（来自 /api/locations）
+    filteredLocations: [], // 当前搜索结果
+    locationKeyword: '',  // 点位搜索关键词
     locationNames: [],    // 点位名称（picker 展示用）
     locationIndex: -1,    // 当前选中点位下标
     locationId: '',       // 选中点位 id
@@ -30,17 +32,44 @@ Page({
       const locations = Array.isArray(list) ? list : [];
       this.setData({
         locations,
-        locationNames: locations.map((l) => l.name)
+        filteredLocations: locations,
+        locationNames: locations.map((l) => this.getLocationLabel(l))
       });
     }).catch((err) => { console.error('[create] 加载点位列表失败:', err); });
   },
 
   onLocationChange(e) {
     const index = Number(e.detail.value);
-    const location = this.data.locations[index];
+    const location = this.data.filteredLocations[index];
     this.setData({
       locationIndex: index,
       locationId: location ? location.id : ''
+    });
+  },
+
+  getLocationLabel(location) {
+    const name = (location && location.name) || '';
+    const area = (location && location.area) || '';
+    const type = (location && location.device_type) || '';
+    return [name, area, type].filter(Boolean).join(' - ');
+  },
+
+  onLocationSearch(e) {
+    const locationKeyword = (e.detail.value || '').trim();
+    const keyword = locationKeyword.toLowerCase();
+    const filteredLocations = this.data.locations.filter((location) => {
+      const text = [location.name, location.area, location.device_type]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return !keyword || text.includes(keyword);
+    });
+    this.setData({
+      locationKeyword,
+      filteredLocations,
+      locationNames: filteredLocations.map((location) => this.getLocationLabel(location)),
+      locationIndex: -1,
+      locationId: ''
     });
   },
 

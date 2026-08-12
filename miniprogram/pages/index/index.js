@@ -64,93 +64,37 @@ Page({
 
   // ===== 报修用户首页 =====
   loadUserHome() {
-    const uid = this.data.userInfo.id;
-    const ordersReq = api.get('/orders', { reporter_id: uid, page: 1, pageSize: 3 }, { loading: false }).catch(() => ({}));
-    Promise.all([
-      this.countOrders({ reporter_id: uid, status: 'pending_review' }),
-      this.countOrders({ reporter_id: uid, status: 'pending_repair' }),
-      this.countOrders({ reporter_id: uid, status: 'repairing' }),
-      this.countOrders({ reporter_id: uid, status: 'completed' }),
-      ordersReq
-    ]).then(([pendingReview, pendingRepair, repairing, completed, ordersRes]) => {
+    api.getDashboard({ loading: false, silent: true }).then((dashboard) => {
       this.setData({
-        stats: { pendingReview, pendingRepair, repairing, completed },
-        recentOrders: this.extractList(ordersRes)
+        stats: (dashboard && dashboard.stats) || {},
+        recentOrders: (dashboard && dashboard.recentOrders) || []
       });
-    });
+    }).catch((err) => console.error('[index] 报修首页加载失败:', err));
   },
 
   // ===== 维修人员首页 =====
   loadRepairerHome() {
-    const uid = this.data.userInfo.id;
-    const today = util.formatTime(new Date(), 'YYYY-MM-DD');
-    const poolReq = api.get('/orders', { status: 'pending_repair,repair_returned', page: 1, pageSize: 3 }, { loading: false }).catch((err) => {
-      console.error('[index] 待接单查询失败:', err);
-      return {};
-    });
-    const repairingReq = api.get('/orders', { status: 'repairing', page: 1, pageSize: 3 }, { loading: false }).catch((err) => {
-      console.error('[index] 维修中查询失败:', err);
-      return {};
-    });
-    const doneReq = api.get('/orders', { status: 'completed', page: 1, pageSize: 200 }, { loading: false }).catch((err) => {
-      console.error('[index] 已完成查询失败:', err);
-      return {};
-    });
-    Promise.all([
-      this.countOrders({ status: 'pending_repair,repair_returned' }),
-      this.countOrders({ status: 'repairing' }),
-      poolReq,
-      repairingReq,
-      doneReq
-    ]).then(([pendingAccept, repairing, poolRes, repairingRes, doneRes]) => {
-      // 今日完成数：按 updated_at 统计当天（工单完成时 updated_at 自动更新为验收时间）
-      const doneList = this.extractList(doneRes);
-      console.log('[index] doneList length=' + doneList.length + ', today=' + today);
-      const todayCompleted = doneList.filter((o) => {
-        const t = util.formatTime(o.updated_at || o.created_at, 'YYYY-MM-DD');
-        return t === today;
-      }).length;
-      console.log('[index] todayCompleted=' + todayCompleted);
+    api.getDashboard({ loading: false, silent: true }).then((dashboard) => {
       this.setData({
-        stats: { pendingAccept, repairing, todayCompleted },
-        poolOrders: this.extractList(poolRes),
-        repairingOrders: this.extractList(repairingRes)
+        stats: (dashboard && dashboard.stats) || {},
+        poolOrders: (dashboard && dashboard.poolOrders) || [],
+        repairingOrders: (dashboard && dashboard.repairingOrders) || []
       });
-    }).catch((err) => {
-      console.error('[index] loadRepairerHome 异常:', err);
-    });
+    }).catch((err) => console.error('[index] 维修首页加载失败:', err));
   },
 
   // ===== 管理员首页 =====
   loadAdminHome() {
-    const latestReq = api.get('/orders', { page: 1, pageSize: 5 }, { loading: false }).catch(() => ({}));
-    // 使用统计接口获取准确的本月完成数（基于验收通过时间，而非工单创建时间）
-    const overviewReq = api.get('/statistics/overview', {}, { loading: false }).catch(() => ({}));
-    const monitorReq = api.getMonitorOverview({ loading: false, silent: true }).catch(() => null);
-    Promise.all([
-      this.countOrders({ status: 'pending_review' }),
-      this.countOrders({ status: 'pending_repair' }),
-      this.countOrders({ status: 'pending_accept' }),
-      this.countOrders({ status: 'repair_returned' }),
-      latestReq,
-      overviewReq,
-      monitorReq
-    ]).then(([pendingReview, pendingRepair, pendingAccept, repairReturned, latestRes, overview, monitorOv]) => {
-      const ov = overview || {};
+    api.getDashboard({ loading: false, silent: true }).then((dashboard) => {
+      const monitorOv = dashboard && dashboard.monitorOverview;
       this.setData({
-        stats: {
-          pendingReview,
-          pendingRepair,
-          pendingAccept,
-          repairReturned,
-          monthCompleted: ov.month_completed || 0
-        },
-        latestOrders: this.extractList(latestRes),
+        stats: (dashboard && dashboard.stats) || {},
+        latestOrders: (dashboard && dashboard.latestOrders) || [],
         monitorOverview: monitorOv || null,
         monitorRateText: util.formatPercent(monitorOv && monitorOv.normalRate)
       });
       if (monitorOv) setTimeout(() => this.drawHomeMonitorDonut(), 100);
-    });
+    }).catch((err) => console.error('[index] 管理首页加载失败:', err));
   },
 
   // ===== 跳转 =====

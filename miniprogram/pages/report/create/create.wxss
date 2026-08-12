@@ -2,6 +2,18 @@
 .form-card {
   margin-top: 24rpx;
 }
+.location-search {
+  height: 76rpx;
+  box-sizing: border-box;
+  width: 100%;
+  margin: 12rpx 0;
+  padding: 0 22rpx;
+  border: 1rpx solid #e5e7eb;
+  border-radius: 8rpx;
+  background: #f8fafc;
+  color: #333;
+  font-size: 28rpx;
+}
 .upload-tip {
   font-size: 24rpx;
   color: #07C160;

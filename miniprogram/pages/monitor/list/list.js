@@ -4,9 +4,30 @@ const util = require('../../../utils/util.js');
 Page({
   data: { keyword: '', status: '', statuses: [{ key: '', text: '全部' }, { key: 'normal', text: '正常' }, { key: 'fault', text: '故障中' }, { key: 'repairing', text: '维修中' }], monitors: [], loading: true, error: '' },
   onLoad(options) { const status = options && options.status ? options.status : ''; this.setData({ status }); this.load({ status }); },
+  onUnload() { if (this._searchTimer) clearTimeout(this._searchTimer); },
   onPullDownRefresh() { this.load().finally(() => wx.stopPullDownRefresh()); },
-  onSearch(e) { const keyword = e.detail.value || ''; this.setData({ keyword }); this.load({ keyword }); },
-  chooseStatus(e) { const status = e.currentTarget.dataset.status || ''; this.setData({ status }); this.load({ status }); },
+  onSearch(e) {
+    const keyword = e.detail.value || '';
+    this.setData({ keyword });
+    if (this._searchTimer) {
+      clearTimeout(this._searchTimer);
+      this._searchTimer = null;
+    }
+    if (e.type === 'confirm') {
+      this.load({ keyword });
+      return;
+    }
+    this._searchTimer = setTimeout(() => this.load({ keyword }), 300);
+  },
+  chooseStatus(e) {
+    if (this._searchTimer) {
+      clearTimeout(this._searchTimer);
+      this._searchTimer = null;
+    }
+    const status = e.currentTarget.dataset.status || '';
+    this.setData({ status });
+    this.load({ status });
+  },
   load(overrides) {
     const params = Object.assign({ keyword: this.data.keyword, status: this.data.status }, overrides || {});
     const requestId = (this._requestId || 0) + 1;

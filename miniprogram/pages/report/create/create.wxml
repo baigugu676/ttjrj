@@ -4,9 +4,10 @@
     <!-- 点位选择 -->
     <view class="form-item">
       <text class="form-label">点位名称 <text class="form-required">*</text></text>
+      <input class="location-search" value="{{locationKeyword}}" placeholder="搜索点位名称、区域或设备类型" confirm-type="search" bindinput="onLocationSearch" />
       <picker range="{{locationNames}}" value="{{locationIndex}}" bindchange="onLocationChange">
         <view class="form-input picker {{locationIndex < 0 ? 'placeholder' : ''}}">
-          {{locationIndex < 0 ? '请选择故障点位' : locationNames[locationIndex]}} ▾
+          {{locationIndex < 0 ? (locationNames.length ? '请选择故障点位' : '没有匹配的故障点位') : locationNames[locationIndex]}} ▾
         </view>
       </picker>
     </view>

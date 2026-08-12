@@ -284,5 +284,8 @@ module.exports = {
   getMonitorDetail(id, options) {
     return request('GET', '/locations/' + id + '/monitor-detail', {}, options);
   },
+  getDashboard(options) {
+    return callCloud('orders', { action: 'dashboard', _token: wx.getStorageSync('token') || '' }, options);
+  },
   upload
 };
