@@ -117,3 +117,63 @@
   color: #666666;
   margin-top: 12rpx;
 }
+
+/* 管理员首页 —— 监控状态概览卡片 */
+.home-monitor-card {
+  display: flex;
+  align-items: center;
+  margin: 24rpx 24rpx 0;
+  padding: 24rpx 28rpx;
+  background: #fff;
+  border-radius: 16rpx;
+  box-shadow: 0 2rpx 12rpx rgba(0,0,0,.04);
+}
+.hmc-left {
+  flex: 1;
+}
+.hmc-title {
+  font-size: 28rpx;
+  font-weight: 600;
+  color: #333;
+  margin-bottom: 12rpx;
+}
+.hmc-stats {
+  display: flex;
+  gap: 16rpx;
+  margin-bottom: 8rpx;
+}
+.hmc-stat {
+  font-size: 22rpx;
+  padding: 2rpx 12rpx;
+  border-radius: 8rpx;
+  color: #fff;
+}
+.hmc-stat.normal {
+  background: #16a34a;
+}
+.hmc-stat.fault {
+  background: #ef4444;
+}
+.hmc-stat.repairing {
+  background: #f59e0b;
+}
+.hmc-total {
+  font-size: 23rpx;
+  color: #999;
+}
+.hmc-more {
+  margin-top: 8rpx;
+  font-size: 23rpx;
+  color: #07c160;
+}
+.hmc-right {
+  width: 180rpx;
+  height: 180rpx;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.hmc-canvas {
+  width: 180rpx;
+  height: 180rpx;
+}

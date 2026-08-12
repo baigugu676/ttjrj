@@ -10,7 +10,8 @@ Page({
     recentOrders: [],     // 报修用户：最近3条报修
     poolOrders: [],       // 维修人员：待接单预览
     repairingOrders: [],  // 维修人员：维修中预览
-    latestOrders: []      // 管理员：最新工单动态
+    latestOrders: [],     // 管理员：最新工单动态
+    monitorOverview: null // 管理员：监控状态概览
   },
 
   onShow() {
@@ -117,14 +118,16 @@ Page({
     const latestReq = api.get('/orders', { page: 1, pageSize: 5 }, { loading: false }).catch(() => ({}));
     // 使用统计接口获取准确的本月完成数（基于验收通过时间，而非工单创建时间）
     const overviewReq = api.get('/statistics/overview', {}, { loading: false }).catch(() => ({}));
+    const monitorReq = api.getMonitorOverview({ loading: false, silent: true }).catch(() => null);
     Promise.all([
       this.countOrders({ status: 'pending_review' }),
       this.countOrders({ status: 'pending_repair' }),
       this.countOrders({ status: 'pending_accept' }),
       this.countOrders({ status: 'repair_returned' }),
       latestReq,
-      overviewReq
-    ]).then(([pendingReview, pendingRepair, pendingAccept, repairReturned, latestRes, overview]) => {
+      overviewReq,
+      monitorReq
+    ]).then(([pendingReview, pendingRepair, pendingAccept, repairReturned, latestRes, overview, monitorOv]) => {
       const ov = overview || {};
       this.setData({
         stats: {
@@ -134,14 +137,75 @@ Page({
           repairReturned,
           monthCompleted: ov.month_completed || 0
         },
-        latestOrders: this.extractList(latestRes)
+        latestOrders: this.extractList(latestRes),
+        monitorOverview: monitorOv || null
       });
+      if (monitorOv) setTimeout(() => this.drawHomeMonitorDonut(), 100);
     });
   },
 
   // ===== 跳转 =====
   openMonitorOverview() {
     wx.navigateTo({ url: '/pages/monitor/overview/overview' });
+  },
+
+  /** 管理员首页 —— 监控环形占比图 */
+  drawHomeMonitorDonut() {
+    const overview = this.data.monitorOverview;
+    if (!overview) return;
+
+    const ctx = wx.createCanvasContext('homeMonitorDonut', this);
+    const width = 160;
+    const height = 160;
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = 54;
+    const lineWidth = 12;
+
+    const normalRate = Number(overview.normalRate) || 0;
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + (normalRate / 100) * 2 * Math.PI;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 底色圆环
+    ctx.setLineWidth(lineWidth);
+    ctx.setStrokeStyle('#e5e7eb');
+    ctx.setLineCap('round');
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // 正常占比弧线（绿色）
+    if (normalRate > 0) {
+      ctx.setStrokeStyle('#16a34a');
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startAngle, endAngle);
+      ctx.stroke();
+    }
+
+    // 非正常占比弧线（红色）
+    if (normalRate < 100) {
+      ctx.setStrokeStyle('#ef4444');
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, endAngle, startAngle + 2 * Math.PI);
+      ctx.stroke();
+    }
+
+    // 中心百分比数字
+    ctx.setFillStyle('#16a34a');
+    ctx.setFontSize(28);
+    ctx.setTextAlign('center');
+    ctx.setTextBaseline('middle');
+    const displayRate = parseFloat(normalRate.toFixed(1));
+    ctx.fillText(displayRate + '%', cx, cy - 4);
+
+    // 中心副标题
+    ctx.setFillStyle('#9ca3af');
+    ctx.setFontSize(11);
+    ctx.fillText('正常率', cx, cy + 20);
+
+    ctx.draw();
   },
 
   // 报修用户：新建报修

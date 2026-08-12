@@ -2,11 +2,26 @@
   <view wx:if="{{loading}}" class="state">加载中...</view>
   <view wx:elif="{{error}}" class="state error" bindtap="retry">{{error}}<text class="retry"> 点击重试</text></view>
   <block wx:else>
+    <!-- 环形占比图 -->
+    <view class="donut-card">
+      <view class="donut-title">监控正常率</view>
+      <view class="donut-wrap">
+        <canvas canvas-id="monitorDonut" class="donut-canvas" width="200" height="200"></canvas>
+      </view>
+      <view class="donut-legend">
+        <view class="legend-item"><view class="legend-dot normal"></view><text>正常 {{overview.normal || 0}} 台</text></view>
+        <view class="legend-item"><view class="legend-dot fault"></view><text>故障 {{overview.fault || 0}} 台</text></view>
+        <view class="legend-item"><view class="legend-dot repairing"></view><text>维修 {{overview.repairing || 0}} 台</text></view>
+      </view>
+    </view>
+
+    <!-- 状态分布柱状图 -->
     <view class="chart-card">
       <view class="chart-head"><text>启用监控 {{overview.total || 0}} 台</text><text>状态分布</text></view>
       <view class="chart-wrap"><canvas canvas-id="monitorBars" class="chart" width="320" height="180"></canvas></view>
       <view wx:if="{{!overview.total}}" class="state empty-state">暂无启用监控</view>
     </view>
+
     <view class="table-entry" bindtap="openMonitorList"><text>查看监控表格</text><text class="table-entry-arrow">›</text></view>
   </block>
 </view>

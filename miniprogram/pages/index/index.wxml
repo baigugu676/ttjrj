@@ -150,6 +150,23 @@
       </view>
     </view>
 
+    <!-- 监控状态概览卡片 -->
+    <view class="home-monitor-card" wx:if="{{monitorOverview && monitorOverview.total}}" bindtap="openMonitorOverview">
+      <view class="hmc-left">
+        <view class="hmc-title">📹 监控状态</view>
+        <view class="hmc-stats">
+          <text class="hmc-stat normal">{{monitorOverview.normal || 0}} 正常</text>
+          <text class="hmc-stat fault">{{monitorOverview.fault || 0}} 故障</text>
+          <text class="hmc-stat repairing">{{monitorOverview.repairing || 0}} 维修</text>
+        </view>
+        <view class="hmc-total">共 {{monitorOverview.total || 0}} 台监控</view>
+        <view class="hmc-more">查看详情 ›</view>
+      </view>
+      <view class="hmc-right">
+        <canvas canvas-id="homeMonitorDonut" class="hmc-canvas" width="160" height="160"></canvas>
+      </view>
+    </view>
+
     <view class="section">
       <view class="section-head">
         <text class="section-title">最新工单动态</text>

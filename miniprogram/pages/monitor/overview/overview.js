@@ -11,7 +11,10 @@ Page({
     return api.getMonitorOverview({ loading: false, silent: true })
       .then((overview) => {
         this.setData({ overview: overview || {} });
-        setTimeout(() => this.drawMonitorBars(), 0);
+        setTimeout(() => {
+          this.drawDonutChart();
+          this.drawMonitorBars();
+        }, 0);
       })
       .catch(() => this.setData({ overview: null, error: '监控状态加载失败，请重试' }))
       .finally(() => this.setData({ loading: false }));
@@ -19,6 +22,68 @@ Page({
 
   retry() { this.load(); },
 
+  /** 环形占比图 —— 展示正常监控百分比 */
+  drawDonutChart() {
+    const overview = this.data.overview;
+    if (!overview) return;
+
+    const ctx = wx.createCanvasContext('monitorDonut', this);
+    const width = 200;
+    const height = 200;
+    const cx = width / 2;
+    const cy = height / 2;
+    const radius = 66;
+    const lineWidth = 16;
+
+    const normalRate = Number(overview.normalRate) || 0;
+    // Canvas arc: 0 at 3-o'clock, clockwise. Start at 12-o'clock (-PI/2).
+    const startAngle = -Math.PI / 2;
+    const endAngle = startAngle + (normalRate / 100) * 2 * Math.PI;
+
+    ctx.clearRect(0, 0, width, height);
+
+    // 底色圆环
+    ctx.setLineWidth(lineWidth);
+    ctx.setStrokeStyle('#e5e7eb');
+    ctx.setLineCap('round');
+    ctx.beginPath();
+    ctx.arc(cx, cy, radius, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // 正常占比弧线（绿色）
+    if (normalRate > 0) {
+      ctx.setStrokeStyle('#16a34a');
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, startAngle, endAngle);
+      ctx.stroke();
+    }
+
+    // 非正常占比弧线（红色，接在绿色后面）
+    if (normalRate < 100) {
+      const faultStart = endAngle;
+      const faultEnd = startAngle + 2 * Math.PI;
+      ctx.setStrokeStyle('#ef4444');
+      ctx.beginPath();
+      ctx.arc(cx, cy, radius, faultStart, faultEnd);
+      ctx.stroke();
+    }
+
+    // 中心百分比数字
+    ctx.setFillStyle('#16a34a');
+    ctx.setFontSize(40);
+    ctx.setTextAlign('center');
+    ctx.setTextBaseline('middle');
+    ctx.fillText(normalRate + '%', cx, cy - 6);
+
+    // 中心副标题
+    ctx.setFillStyle('#6b7280');
+    ctx.setFontSize(13);
+    ctx.fillText('监控正常率', cx, cy + 26);
+
+    ctx.draw();
+  },
+
+  /** 状态分布柱状图 */
   drawMonitorBars() {
     const overview = this.data.overview;
     if (!overview) return;
