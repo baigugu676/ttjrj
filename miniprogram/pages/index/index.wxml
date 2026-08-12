@@ -163,8 +163,8 @@
         <view class="hmc-total">共 {{monitorOverview.total || 0}} 台监控</view>
         <view class="hmc-more">查看详情 ›</view>
       </view>
-      <view class="hmc-right">
-        <canvas canvas-id="homeMonitorDonut" class="hmc-canvas" width="160" height="160"></canvas>
+      <view class="hmc-right" style="flex-basis:{{homeDonutSize}}px;width:{{homeDonutSize}}px;height:{{homeDonutSize}}px">
+        <canvas canvas-id="homeMonitorDonut" class="hmc-canvas" width="{{homeDonutSize}}" height="{{homeDonutSize}}" style="width:{{homeDonutSize}}px;height:{{homeDonutSize}}px"></canvas>
       </view>
     </view>
 

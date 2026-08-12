@@ -12,7 +12,8 @@ Page({
     repairingOrders: [],  // 维修人员：维修中预览
     latestOrders: [],     // 管理员：最新工单动态
     monitorOverview: null, // 管理员：监控状态概览
-    monitorRateText: '0%'
+    monitorRateText: '0%',
+    homeDonutSize: 80
   },
 
   onShow() {
@@ -21,7 +22,8 @@ Page({
     const userInfo = app.getUserInfo() || {};
     this.setData({
       role: userInfo.role || 'user',
-      userInfo
+      userInfo,
+      homeDonutSize: this.getHomeDonutSize()
     });
     this.loadAll();
   },
@@ -53,6 +55,11 @@ Page({
     if (Array.isArray(res)) return res;
     if (res && res.list) return res.list;
     return [];
+  },
+
+  getHomeDonutSize() {
+    const info = wx.getSystemInfoSync();
+    return Math.max(64, Math.round((info.windowWidth || 375) * 160 / 750));
   },
 
   // ===== 报修用户首页 =====
@@ -157,12 +164,12 @@ Page({
     if (!overview) return;
 
     const ctx = wx.createCanvasContext('homeMonitorDonut', this);
-    const width = 160;
-    const height = 160;
+    const width = this.data.homeDonutSize;
+    const height = this.data.homeDonutSize;
     const cx = width / 2;
     const cy = height / 2;
-    const radius = 54;
-    const lineWidth = 12;
+    const radius = width * 0.3375;
+    const lineWidth = Math.max(5, width * 0.075);
 
     const normalRate = Number(overview.normalRate) || 0;
     const startAngle = -Math.PI / 2;
