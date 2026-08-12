@@ -42,6 +42,25 @@ async function monitorRows() {
   return { locations, orders };
 }
 
+async function getAllLocations() {
+  const pageSize = 100;
+  const locations = [];
+  let skip = 0;
+
+  while (true) {
+    const res = await db.collection('locations')
+      .orderBy('sort_order', 'asc')
+      .orderBy('created_at', 'asc')
+      .skip(skip)
+      .limit(pageSize)
+      .get();
+    const rows = res.data || [];
+    locations.push(...rows);
+    if (rows.length < pageSize) return locations;
+    skip += rows.length;
+  }
+}
+
 function mapMonitor(location, orders) {
   const status = classify(orders);
   const open = orders.filter((o) => OPEN_STATUSES.includes(o.status));
@@ -131,13 +150,10 @@ exports.main = async (event) => {
     const { action } = event || {};
 
     if (action === 'list') {
-      let res = await db.collection('locations')
-        .orderBy('sort_order', 'asc')
-        .orderBy('created_at', 'asc')
-        .get();
+      let locations = await getAllLocations();
 
       // 首次使用：集合为空则自动填充预设点位
-      if (!res.data.length) {
+      if (!locations.length) {
         const presets = [
            { name: '3号楼道摄像头-01', area: '3号楼', device_type: '摄像头', sort_order: 1, status: 'active' },
           { name: '大门入口摄像头-03', area: '大门', device_type: '摄像头', sort_order: 2, status: 'active' },
@@ -150,14 +166,10 @@ exports.main = async (event) => {
             data: { ...l, created_at: db.serverDate() }
           });
         }
-        res = await db.collection('locations')
-          .orderBy('sort_order', 'asc')
-          .orderBy('created_at', 'asc')
-          .limit(1000)
-          .get();
+        locations = await getAllLocations();
       }
 
-      return ok(res.data.map((l) => ({ ...l, id: l._id })));
+      return ok(locations.map((l) => ({ ...l, id: l._id })));
     }
 
     if (action === 'monitorOverview' || action === 'monitorStatus') {

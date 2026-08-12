@@ -8,6 +8,7 @@
       <view class="donut-wrap">
         <canvas canvas-id="monitorDonut" class="donut-canvas" width="200" height="200"></canvas>
       </view>
+      <view class="donut-rate-summary">正常率 <text>{{normalRateText}}</text></view>
       <view class="donut-legend">
         <view class="legend-item"><view class="legend-dot normal"></view><text>正常 {{overview.normal || 0}} 台</text></view>
         <view class="legend-item"><view class="legend-dot fault"></view><text>故障 {{overview.fault || 0}} 台</text></view>

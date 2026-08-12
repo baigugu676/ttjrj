@@ -1,7 +1,8 @@
 const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
-  data: { overview: null, loading: true, error: '' },
+  data: { overview: null, normalRateText: '0%', loading: true, error: '' },
 
   onLoad() { this.load(); },
   onPullDownRefresh() { this.load().finally(() => wx.stopPullDownRefresh()); },
@@ -10,7 +11,11 @@ Page({
     this.setData({ loading: true, error: '' });
     return api.getMonitorOverview({ loading: false, silent: true })
       .then((overview) => {
-        this.setData({ overview: overview || {} });
+        const data = overview || {};
+        this.setData({
+          overview: data,
+          normalRateText: util.formatPercent(data.normalRate)
+        });
         setTimeout(() => {
           this.drawDonutChart();
           this.drawMonitorBars();
@@ -67,18 +72,6 @@ Page({
       ctx.arc(cx, cy, radius, faultStart, faultEnd);
       ctx.stroke();
     }
-
-    // 中心百分比数字
-    ctx.setFillStyle('#16a34a');
-    ctx.setFontSize(40);
-    ctx.setTextAlign('center');
-    ctx.setTextBaseline('middle');
-    ctx.fillText(normalRate + '%', cx, cy - 6);
-
-    // 中心副标题
-    ctx.setFillStyle('#6b7280');
-    ctx.setFontSize(13);
-    ctx.fillText('监控正常率', cx, cy + 26);
 
     ctx.draw();
   },

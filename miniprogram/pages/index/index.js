@@ -11,7 +11,8 @@ Page({
     poolOrders: [],       // 维修人员：待接单预览
     repairingOrders: [],  // 维修人员：维修中预览
     latestOrders: [],     // 管理员：最新工单动态
-    monitorOverview: null // 管理员：监控状态概览
+    monitorOverview: null, // 管理员：监控状态概览
+    monitorRateText: '0%'
   },
 
   onShow() {
@@ -138,7 +139,8 @@ Page({
           monthCompleted: ov.month_completed || 0
         },
         latestOrders: this.extractList(latestRes),
-        monitorOverview: monitorOv || null
+        monitorOverview: monitorOv || null,
+        monitorRateText: util.formatPercent(monitorOv && monitorOv.normalRate)
       });
       if (monitorOv) setTimeout(() => this.drawHomeMonitorDonut(), 100);
     });
@@ -191,19 +193,6 @@ Page({
       ctx.arc(cx, cy, radius, endAngle, startAngle + 2 * Math.PI);
       ctx.stroke();
     }
-
-    // 中心百分比数字
-    ctx.setFillStyle('#16a34a');
-    ctx.setFontSize(28);
-    ctx.setTextAlign('center');
-    ctx.setTextBaseline('middle');
-    const displayRate = parseFloat(normalRate.toFixed(1));
-    ctx.fillText(displayRate + '%', cx, cy - 4);
-
-    // 中心副标题
-    ctx.setFillStyle('#9ca3af');
-    ctx.setFontSize(11);
-    ctx.fillText('正常率', cx, cy + 20);
 
     ctx.draw();
   },

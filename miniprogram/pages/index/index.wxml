@@ -159,6 +159,7 @@
           <text class="hmc-stat fault">{{monitorOverview.fault || 0}} 故障</text>
           <text class="hmc-stat repairing">{{monitorOverview.repairing || 0}} 维修</text>
         </view>
+        <view class="hmc-rate-summary">正常率 <text>{{monitorRateText}}</text></view>
         <view class="hmc-total">共 {{monitorOverview.total || 0}} 台监控</view>
         <view class="hmc-more">查看详情 ›</view>
       </view>
