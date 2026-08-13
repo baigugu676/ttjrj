@@ -1,0 +1,9 @@
+{
+  "name": "dashboard",
+  "version": "1.0.0",
+  "description": "微信云开发 - 首页聚合数据",
+  "main": "index.js",
+  "dependencies": {
+    "wx-server-sdk": "~2.6.3"
+  }
+}

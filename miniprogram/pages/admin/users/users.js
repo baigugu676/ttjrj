@@ -11,6 +11,7 @@ Page({
       { label: '管理员', value: 'admin' }
     ],
     roleFilter: '',
+    keyword: '',
     list: [],
     page: 1,
     pageSize: 10,
@@ -59,6 +60,14 @@ Page({
     this.loadList(true);
   },
 
+  onKeywordInput(e) {
+    this.setData({ keyword: e.detail.value });
+  },
+
+  onSearch() {
+    this.loadList(true);
+  },
+
   loadList(reset) {
     const { page, pageSize, hasMore, loading } = this.data;
     if (!reset && (!hasMore || loading)) return;
@@ -66,6 +75,7 @@ Page({
     this.setData({ loading: true });
     api.get('/users', {
       role: this.data.roleFilter,
+      keyword: this.data.keyword.trim(),
       page: target,
       pageSize
     }, { loading: false }).then((res) => {

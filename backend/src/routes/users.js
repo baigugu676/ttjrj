@@ -13,11 +13,11 @@ const router = express.Router();
 router.use(auth, requireRole('admin'));
 
 /**
- * GET /api/users — 用户列表，支持 ?role= 筛选
+ * GET /api/users — 用户列表，支持 ?role= 和 ?keyword= 筛选
  */
 router.get('/', async (req, res, next) => {
   try {
-    const { role } = req.query;
+    const { role, keyword: rawKeyword } = req.query;
     let sql = `SELECT id, username, openid, real_name, role, phone, avatar_url, status, created_at, updated_at
                FROM users WHERE 1=1`;
     const params = [];
@@ -26,6 +26,12 @@ router.get('/', async (req, res, next) => {
     if (role && ['admin', 'user', 'repairer'].includes(role)) {
       sql += ' AND role = ?';
       params.push(role);
+    }
+    const keyword = rawKeyword ? String(rawKeyword).trim() : '';
+    if (keyword) {
+      const pattern = `%${keyword}%`;
+      sql += ' AND (username LIKE ? OR real_name LIKE ? OR phone LIKE ?)';
+      params.push(pattern, pattern, pattern);
     }
 
     sql += ' ORDER BY id ASC';

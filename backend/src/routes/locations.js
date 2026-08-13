@@ -195,10 +195,19 @@ router.get('/:id/monitor-detail', auth, async (req, res, next) => {
  */
 router.get('/', auth, async (req, res, next) => {
   try {
+    const keyword = req.query.keyword ? String(req.query.keyword).trim() : '';
+    const where = [];
+    const params = [];
+    if (keyword) {
+      const pattern = `%${keyword}%`;
+      where.push('(name LIKE ? OR area LIKE ? OR device_type LIKE ?)');
+      params.push(pattern, pattern, pattern);
+    }
     const [rows] = await pool.query(
       `SELECT id, name, area, device_type, sort_order, status, created_at
-       FROM locations
-       ORDER BY sort_order ASC, id ASC`
+       FROM locations${where.length ? ` WHERE ${where.join(' AND ')}` : ''}
+       ORDER BY sort_order ASC, id ASC`,
+      params
     );
     res.json({ code: 0, message: 'success', data: rows });
   } catch (err) {

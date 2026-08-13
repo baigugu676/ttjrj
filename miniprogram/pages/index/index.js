@@ -115,7 +115,7 @@ Page({
     const radius = width * 0.3375;
     const lineWidth = Math.max(5, width * 0.075);
 
-    const normalRate = Number(overview.normalRate) || 0;
+    const normalRate = Math.max(0, Math.min(100, Number(overview.normalRate) || 0));
     const startAngle = -Math.PI / 2;
     const endAngle = startAngle + (normalRate / 100) * 2 * Math.PI;
 
@@ -144,6 +144,19 @@ Page({
       ctx.arc(cx, cy, radius, endAngle, startAngle + 2 * Math.PI);
       ctx.stroke();
     }
+
+    // 中心百分比数字
+    ctx.setFillStyle('#16a34a');
+    ctx.setFontSize(17);
+    ctx.setTextAlign('center');
+    ctx.setTextBaseline('middle');
+    const displayRate = parseFloat(normalRate.toFixed(1));
+    ctx.fillText(displayRate + '%', cx, cy - 2);
+
+    // 中心副标题
+    ctx.setFillStyle('#9ca3af');
+    ctx.setFontSize(9);
+    ctx.fillText('正常率', cx, cy + 14);
 
     ctx.draw();
   },

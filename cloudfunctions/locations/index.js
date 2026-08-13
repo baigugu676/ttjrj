@@ -261,7 +261,11 @@ exports.main = async (event) => {
       }
       locations.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
 
-      return ok(locations.map((l) => ({ ...l, id: l._id })));
+      const keyword = event.keyword ? String(event.keyword).trim().toLowerCase() : '';
+      const list = keyword
+        ? locations.filter((l) => `${l.name || ''} ${l.area || ''} ${l.device_type || ''}`.toLowerCase().includes(keyword))
+        : locations;
+      return ok(list.map((l) => ({ ...l, id: l._id })));
     }
 
     if (action === 'monitorOverview' || action === 'monitorStatus') {
@@ -274,7 +278,15 @@ exports.main = async (event) => {
       if (action === 'monitorStatus') {
         const keyword = event.keyword ? String(event.keyword).trim().toLowerCase() : '';
         const filtered = list.filter((m) => (!keyword || `${m.name} ${m.area} ${m.device_type}`.toLowerCase().includes(keyword)) && (!event.status || m.status === event.status));
-        return ok(filtered);
+        const page = Math.max(1, Number(event.page) || 1);
+        const pageSize = Math.min(50, Math.max(1, Number(event.pageSize) || 20));
+        const start = (page - 1) * pageSize;
+        return ok({
+          list: filtered.slice(start, start + pageSize),
+          total: filtered.length,
+          page,
+          pageSize
+        });
       }
       const total = list.length;
       const normal = list.filter((m) => m.status === 'normal').length;
