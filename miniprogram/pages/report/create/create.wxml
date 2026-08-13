@@ -5,6 +5,7 @@
     <view class="form-item">
       <text class="form-label">点位名称 <text class="form-required">*</text></text>
       <input class="location-search" value="{{locationKeyword}}" placeholder="搜索点位名称、区域或设备类型" confirm-type="search" bindinput="onLocationSearch" />
+      <view class="field-hint" wx:if="{{locationKeyword && !filteredLocations.length}}">未找到匹配点位，请更换关键词</view>
       <picker range="{{locationNames}}" value="{{locationIndex}}" bindchange="onLocationChange">
         <view class="form-input picker {{locationIndex < 0 ? 'placeholder' : ''}}">
           {{locationIndex < 0 ? (locationNames.length ? '请选择故障点位' : '没有匹配的故障点位') : locationNames[locationIndex]}} ▾
@@ -17,6 +18,7 @@
       <text class="form-label">故障描述 <text class="form-required">*</text></text>
       <textarea class="form-textarea" placeholder="请详细描述故障现象..." maxlength="500"
         value="{{description}}" bindinput="onDescInput"></textarea>
+      <view class="char-count">{{description.length}}/500</view>
     </view>
 
     <!-- 现场照片 -->
@@ -40,10 +42,12 @@
       <text class="form-label">维修要求（选填）</text>
       <textarea class="form-textarea" placeholder="特殊要求、紧急程度等备注..." maxlength="200"
         value="{{requirements}}" bindinput="onReqInput"></textarea>
+      <view class="char-count">{{requirements.length}}/200</view>
     </view>
   </view>
 
   <view class="submit-area">
-    <button class="btn btn-primary submit-btn" bindtap="onSubmit" loading="{{submitting}}">提交报修</button>
+    <button class="btn btn-primary submit-btn" bindtap="onSubmit" loading="{{submitting}}" disabled="{{submitting}}">{{submitting ? '正在提交...' : '提交报修'}}</button>
+    <view class="upload-progress" wx:if="{{submitting && images.length}}">照片上传进度 {{uploadProgress}}%</view>
   </view>
 </view>

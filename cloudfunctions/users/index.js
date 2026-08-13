@@ -3,7 +3,7 @@
  * 全部操作仅管理员可用。身份由调用者 OPENID 识别。
  *
  * 入参（action）：
- *   list    { role?, page?, pageSize? }                    用户列表（分页）
+ *   list    { role?, keyword?, page?, pageSize? }          用户列表（分页）
  *   create  { username, password, real_name?, role?, phone? } 创建用户
  *   update  { id, real_name?, role?, phone?, avatar_url?, password? } 编辑用户
  *   status  { id, status: 'active'|'disabled' }            启用/禁用
@@ -62,13 +62,16 @@ exports.main = async (event) => {
       const pageSize = Math.min(100, Math.max(1, Number(event.pageSize) || 20));
       const where = {};
       if (event.role && VALID_ROLES.includes(event.role)) where.role = event.role;
-      const base = db.collection('users').where(where);
-      const totalRes = await base.count();
-      const res = await base.orderBy('created_at', 'asc')
-        .skip((page - 1) * pageSize).limit(pageSize).get();
+      const keyword = event.keyword ? String(event.keyword).trim().toLowerCase() : '';
+      const res = await db.collection('users').where(where)
+        .orderBy('created_at', 'asc').limit(1000).get();
+      const filtered = keyword
+        ? res.data.filter((u) => `${u.username || ''} ${u.real_name || ''} ${u.phone || ''}`.toLowerCase().includes(keyword))
+        : res.data;
+      const start = (page - 1) * pageSize;
       return ok({
-        list: res.data.map(safeUser),
-        total: totalRes.total,
+        list: filtered.slice(start, start + pageSize).map(safeUser),
+        total: filtered.length,
         page,
         pageSize
       });

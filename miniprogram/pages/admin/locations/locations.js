@@ -4,6 +4,7 @@ const api = require('../../../utils/api.js');
 Page({
   data: {
     list: [],
+    keyword: '',
     loading: false,
     showModal: false,
     modalTitle: '添加点位',
@@ -39,9 +40,19 @@ Page({
     this.loadList().finally(() => wx.stopPullDownRefresh());
   },
 
+  onKeywordInput(e) {
+    this.setData({ keyword: e.detail.value });
+  },
+
+  onSearch() {
+    this.loadList();
+  },
+
   loadList() {
     this.setData({ loading: true });
-    return api.get('/locations', {}, { loading: false }).then((res) => {
+    return api.get('/locations', {
+      keyword: this.data.keyword.trim()
+    }, { loading: false }).then((res) => {
       const list = Array.isArray(res) ? res : ((res && res.list) || []);
       this.setData({ list, loading: false });
     }).catch((err) => {

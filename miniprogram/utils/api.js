@@ -133,7 +133,7 @@ function resolveTarget(method, url, data) {
       return { name: 'locations', data: { action: 'monitorDetail', id: segs[1] } };
     }
     if (!id) {
-      if (method === 'GET') return { name: 'locations', data: { action: 'list' } };
+      if (method === 'GET') return { name: 'locations', data: Object.assign({ action: 'list' }, data) };
       if (method === 'POST') return { name: 'locations', data: Object.assign({ action: 'create' }, data) };
     }
     if (method === 'PUT') return { name: 'locations', data: Object.assign({ action: 'update', id }, data) };
@@ -164,6 +164,11 @@ function resolveTarget(method, url, data) {
     };
     const act = actionMap[segs[1]];
     if (act) return { name: 'statistics', data: { action: act } };
+  }
+
+  // /dashboard —— 按当前角色聚合首页数据
+  if (first === 'dashboard' && method === 'GET') {
+    return { name: 'dashboard', data: {} };
   }
 
   // /notifications...

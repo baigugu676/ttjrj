@@ -17,7 +17,8 @@ Page({
     description: '',      // 故障描述
     requirements: '',     // 维修要求（选填）
     images: [],           // 已选图片 [{ tempPath }]
-    submitting: false     // 是否正在提交
+    submitting: false,    // 是否正在提交
+    uploadProgress: 0
   },
 
   onLoad() {
@@ -126,7 +127,7 @@ Page({
       return;
     }
 
-    this.setData({ submitting: true });
+    this.setData({ submitting: true, uploadProgress: 0 });
     wx.showLoading({ title: '正在提交...', mask: true });
 
     api.post('/orders', {
@@ -157,11 +158,15 @@ Page({
   // 上传全部照片（携带 order_id 与 image_type=report）
   uploadImages(orderId, images) {
     if (!images || !images.length) return Promise.resolve();
+    let completed = 0;
     const tasks = images.map((item) =>
       api.upload(item.tempPath, { order_id: orderId, image_type: 'report' }, { silent: true, loading: false })
         .catch((err) => {
           console.error('[create] 照片上传失败:', err);
           return null;
+        }).finally(() => {
+          completed += 1;
+          this.setData({ uploadProgress: Math.round(completed * 100 / images.length) });
         })
     );
     return Promise.all(tasks);

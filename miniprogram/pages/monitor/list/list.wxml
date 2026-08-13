@@ -1,5 +1,5 @@
 <view class="page">
-  <view class="search"><input value="{{keyword}}" confirm-type="search" placeholder="搜索监控名称、区域或设备类型" bindconfirm="onSearch" bindinput="onSearch" /></view>
+  <view class="search"><input value="{{keyword}}" confirm-type="search" placeholder="搜索监控名称、区域或设备类型" bindconfirm="onSearch" bindinput="onKeywordInput" /></view>
   <scroll-view class="filters" scroll-x>
     <view wx:for="{{statuses}}" wx:key="key" class="filter {{status === item.key ? 'active' : ''}}" data-status="{{item.key}}" bindtap="chooseStatus">{{item.text}}</view>
   </scroll-view>
@@ -12,5 +12,7 @@
       <view class="meta">{{item.area || '未设置区域'}} · {{item.device_type || '未设置类型'}}</view>
       <view class="summary"><text>故障工单 {{item.openOrderCount || 0}}</text><text>总工单 {{item.totalOrderCount || 0}}</text><text>{{item.lastActionText}}</text></view>
     </view>
+    <view wx:if="{{loading}}" class="more-state">加载更多...</view>
+    <view wx:elif="{{!hasMore}}" class="more-state">没有更多监控了</view>
   </view>
 </view>
