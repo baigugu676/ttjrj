@@ -13,7 +13,9 @@ Page({
     latestOrders: [],     // 管理员：最新工单动态
     monitorOverview: null, // 管理员：监控状态概览
     monitorRateText: '0%',
-    homeDonutSize: 80
+    homeDonutSize: 80,
+    loading: false,
+    loadError: ''
   },
 
   onShow() {
@@ -30,6 +32,7 @@ Page({
 
   // 根据角色加载首页数据
   loadAll() {
+    this.setData({ loading: true, loadError: '' });
     const role = this.data.role;
     if (role === 'user') {
       this.loadUserHome();
@@ -69,7 +72,7 @@ Page({
         stats: (dashboard && dashboard.stats) || {},
         recentOrders: (dashboard && dashboard.recentOrders) || []
       });
-    }).catch((err) => console.error('[index] 报修首页加载失败:', err));
+    }).catch((err) => this.handleLoadError(err)).finally(() => this.finishLoad());
   },
 
   // ===== 维修人员首页 =====
@@ -80,7 +83,7 @@ Page({
         poolOrders: (dashboard && dashboard.poolOrders) || [],
         repairingOrders: (dashboard && dashboard.repairingOrders) || []
       });
-    }).catch((err) => console.error('[index] 维修首页加载失败:', err));
+    }).catch((err) => this.handleLoadError(err)).finally(() => this.finishLoad());
   },
 
   // ===== 管理员首页 =====
@@ -94,8 +97,13 @@ Page({
         monitorRateText: util.formatPercent(monitorOv && monitorOv.normalRate)
       });
       if (monitorOv) setTimeout(() => this.drawHomeMonitorDonut(), 100);
-    }).catch((err) => console.error('[index] 管理首页加载失败:', err));
+    }).catch((err) => this.handleLoadError(err)).finally(() => this.finishLoad());
   },
+
+  finishLoad() { this.setData({ loading: false }); wx.stopPullDownRefresh(); },
+  handleLoadError(err) { console.error('[index] 首页加载失败:', err); this.setData({ loadError: (err && err.message) || '首页数据加载失败，请重试' }); },
+  retryLoad() { this.loadAll(); },
+  onPullDownRefresh() { this.loadAll(); },
 
   // ===== 跳转 =====
   openMonitorOverview() {

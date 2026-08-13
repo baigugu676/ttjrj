@@ -133,6 +133,10 @@
   min-width: 0;
   padding-right: 16rpx;
 }
+.home-loading,.home-error { display:flex; align-items:center; justify-content:center; gap:12rpx; padding:18rpx 24rpx; color:#64748b; font-size:24rpx; background:#f8fafc; }
+.home-error { flex-direction:column; color:#c2410c; }
+.loading-dot { width:18rpx; height:18rpx; border:3rpx solid #bbf7d0; border-top-color:#07c160; border-radius:50%; animation:spin .8s linear infinite; }
+@keyframes spin { from { transform:rotate(0); } to { transform:rotate(360deg); } }
 .hmc-title {
   font-size: 28rpx;
   font-weight: 600;

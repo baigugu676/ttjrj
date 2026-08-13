@@ -1,5 +1,7 @@
 <!-- 首页：按角色动态展示（报修用户 / 维修人员 / 管理员） -->
 <view class="page">
+  <view class="home-loading" wx:if="{{loading}}"><view class="loading-dot"></view><text>正在同步最新数据...</text></view>
+  <view class="home-error" wx:if="{{loadError}}"><text>{{loadError}}</text><text class="empty-action" bindtap="retryLoad">重新加载</text></view>
   <!-- ============ 报修用户首页 ============ -->
   <block wx:if="{{role === 'user'}}">
     <view class="hero">
@@ -33,7 +35,7 @@
         <text class="more" bindtap="goList">全部 ›</text>
       </view>
       <order-card wx:for="{{recentOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
-      <view class="empty" wx:if="{{!recentOrders.length}}">暂无报修记录，点击「新建报修」发起第一条吧</view>
+      <view class="empty" wx:if="{{!recentOrders.length && !loading}}">暂无报修记录，点击「新建报修」发起第一条吧</view>
     </view>
   </block>
 
@@ -76,7 +78,7 @@
         <text class="more" bindtap="goPool">进入工单池 ›</text>
       </view>
       <order-card wx:for="{{poolOrders}}" wx:key="id" order="{{item}}" compact-status="{{true}}" bind:tap="goDetail" />
-      <view class="empty" wx:if="{{!poolOrders.length}}">暂无可接的工单</view>
+      <view class="empty" wx:if="{{!poolOrders.length && !loading}}">暂无可接的工单</view>
     </view>
 
     <view class="section">
@@ -85,7 +87,7 @@
         <text class="more" bindtap="goMyTasks">全部 ›</text>
       </view>
       <order-card wx:for="{{repairingOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
-      <view class="empty" wx:if="{{!repairingOrders.length}}">暂无维修中的工单</view>
+      <view class="empty" wx:if="{{!repairingOrders.length && !loading}}">暂无维修中的工单</view>
     </view>
   </block>
 
@@ -174,7 +176,7 @@
         <text class="more" bindtap="goAdminOrders">全部 ›</text>
       </view>
       <order-card wx:for="{{latestOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
-      <view class="empty" wx:if="{{!latestOrders.length}}">暂无工单</view>
+      <view class="empty" wx:if="{{!latestOrders.length && !loading}}">暂无工单</view>
     </view>
   </block>
 

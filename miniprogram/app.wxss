@@ -28,6 +28,8 @@ page {
 .btn::after {
   border: none;
 }
+.btn[disabled] { opacity: 0.55; }
+.btn:not([disabled]):active { transform: scale(0.98); opacity: 0.88; }
 /* 主按钮：微信绿 */
 .btn-primary {
   background: #07C160;
@@ -194,6 +196,7 @@ page {
   font-size: 26rpx;
   padding: 60rpx 0;
 }
+.empty-action { display: inline-block; margin-top: 20rpx; padding: 12rpx 28rpx; border: 1rpx solid #07C160; border-radius: 30rpx; color: #07C160; font-size: 24rpx; }
 .page {
   min-height: 100vh;
   box-sizing: border-box;
