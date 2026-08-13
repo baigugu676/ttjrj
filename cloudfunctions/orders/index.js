@@ -127,11 +127,33 @@ function toOrderSummary(order) {
 }
 
 async function getMonitorOverviewSummary() {
-  const [locationsRes, ordersRes] = await Promise.all([
-    db.collection('locations').where({ status: 'active' }).field({ _id: true }).limit(1000).get(),
-    db.collection('work_orders').field({ location_id: true, status: true }).limit(1000).get()
-  ]);
-  const locationStates = new Map((locationsRes.data || []).map((location) => [String(location._id), 'normal']));
+  const emptySummary = () => ({
+    total: 0, normal: 0, fault: 0, repairing: 0, normalRate: 0, faultRate: 0,
+    segments: [
+      { key: 'normal', label: '正常', value: 0, color: '#16a34a' },
+      { key: 'fault', label: '故障中', value: 0, color: '#ef4444' },
+      { key: 'repairing', label: '维修中', value: 0, color: '#f59e0b' }
+    ]
+  });
+
+  let locationsRes;
+  let ordersRes;
+  try {
+    [locationsRes, ordersRes] = await Promise.all([
+      db.collection('locations').field({ _id: true, status: true }).limit(1000).get(),
+      db.collection('work_orders').field({ location_id: true, status: true }).limit(1000).get()
+    ]);
+  } catch (err) {
+    console.warn('[orders] 监控概览统计读取失败，返回空统计:', err);
+    return emptySummary();
+  }
+
+  // 历史点位可能缺少 status 字段，仅剔除明确停用的点位，其余视为启用
+  const locationStates = new Map(
+    (locationsRes.data || [])
+      .filter((location) => location.status !== 'inactive')
+      .map((location) => [String(location._id), 'normal'])
+  );
   const activeLocationIds = new Set(locationStates.keys());
 
   (ordersRes.data || []).forEach((order) => {

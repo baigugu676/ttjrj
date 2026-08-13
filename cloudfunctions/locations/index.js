@@ -1,9 +1,12 @@
 /**
  * 点位管理云函数（微信云开发）
- * GET 列表所有登录角色可访问；增删改仅管理员。
+ * GET 列表与监控只读接口所有登录角色可访问；增删改仅管理员。
  *
  * 入参（action）：
- *   list                          点位列表
+ *   list                          点位列表（集合为空时自动填充默认点位）
+ *   monitorOverview               监控状态概览统计
+ *   monitorStatus { keyword?, status? }  启用监控列表（首次调用自动补种点位）
+ *   monitorDetail { id }          单个监控详情与维修历史
  *   create  { name, area?, device_type?, sort_order?, status? }
  *   update  { id, name?, area?, device_type?, sort_order?, status? }
  *   delete  { id }
@@ -24,6 +27,17 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
+// 宽松模式创建集合：已存在视为成功，创建失败不阻断（由后续操作报具体错误）
+async function ensureCollection(name) {
+  try {
+    await db.createCollection(name);
+    return true;
+  } catch (err) {
+    const msg = (err && (err.message || err.errMsg || String(err))) || '';
+    return /already exists|已存在|ResourceExist|Collection already exists/i.test(msg);
+  }
+}
+
 const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
 const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
 const STATUS_TEXT = { normal: '正常', fault: '故障中', repairing: '维修中' };
@@ -33,13 +47,68 @@ const classify = (orders) => {
   return open.length ? 'fault' : 'normal';
 };
 
+// 默认点位（与 init 云函数一致）：5 个示例点位 + 生成至 300 个
+function defaultLocationList() {
+  const presets = [
+    { name: '3号楼道摄像头-01', area: '3号楼', device_type: '摄像头', sort_order: 1, status: 'active' },
+    { name: '大门入口摄像头-03', area: '大门', device_type: '摄像头', sort_order: 2, status: 'active' },
+    { name: '停车场摄像头-02', area: '停车场', device_type: '摄像头', sort_order: 3, status: 'active' },
+    { name: '2号楼道摄像头-01', area: '2号楼', device_type: '摄像头', sort_order: 4, status: 'active' },
+    { name: '围墙报警器-05', area: '围墙', device_type: '报警器', sort_order: 5, status: 'active' }
+  ];
+  const list = presets.slice();
+  for (let i = 6; i <= 300; i += 1) {
+    list.push({
+      name: `监控点位-${String(i).padStart(3, '0')}`,
+      area: `区域${((i - 1) % 10) + 1}`,
+      device_type: '摄像头',
+      sort_order: i,
+      status: 'active'
+    });
+  }
+  return list;
+}
+
+// 集合为空时自动填充默认点位，返回新增数量（已有数据时跳过）
+async function seedDefaultLocations() {
+  let total = 0;
+  try {
+    const countRes = await db.collection('locations').count();
+    total = countRes.total || 0;
+  } catch (err) {
+    return 0;
+  }
+  if (total > 0) return 0;
+  const list = defaultLocationList();
+  for (let i = 0; i < list.length; i += 20) {
+    await Promise.all(list.slice(i, i + 20).map((l) => db.collection('locations').add({
+      data: { ...l, created_at: db.serverDate() }
+    })));
+  }
+  return list.length;
+}
+
 async function monitorRows() {
-  const locRes = await db.collection('locations').where({ status: 'active' }).limit(1000).get();
-  const locations = locRes.data || [];
-  const orderRes = await db.collection('work_orders').limit(1000).get();
+  let docs = [];
+  try {
+    docs = await getAllLocations();
+  } catch (err) {
+    console.warn('[locations] 点位读取失败:', err);
+    docs = [];
+  }
+  // 历史数据可能缺少 status 字段：仅剔除明确停用的点位，其余视为启用
+  const locations = docs.filter((l) => l.status !== 'inactive');
+  locations.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
+  let orders = [];
+  try {
+    const orderRes = await db.collection('work_orders').limit(1000).get();
+    orders = orderRes.data || [];
+  } catch (err) {
+    console.warn('[locations] 工单读取失败:', err);
+    orders = [];
+  }
   const activeIds = new Set(locations.map((l) => String(l._id)));
-  const orders = (orderRes.data || []).filter((o) => activeIds.has(String(o.location_id)));
-  return { locations, orders };
+  return { locations, orders: orders.filter((o) => activeIds.has(String(o.location_id))) };
 }
 
 async function getAllLocations() {
@@ -47,17 +116,31 @@ async function getAllLocations() {
   const locations = [];
   let skip = 0;
 
-  while (true) {
-    const res = await db.collection('locations')
-      .orderBy('sort_order', 'asc')
-      .orderBy('created_at', 'asc')
-      .skip(skip)
-      .limit(pageSize)
-      .get();
-    const rows = res.data || [];
-    locations.push(...rows);
-    if (rows.length < pageSize) return locations;
-    skip += rows.length;
+  try {
+    while (true) {
+      const res = await db.collection('locations')
+        .orderBy('sort_order', 'asc')
+        .orderBy('created_at', 'asc')
+        .skip(skip)
+        .limit(pageSize)
+        .get();
+      const rows = res.data || [];
+      locations.push(...rows);
+      if (rows.length < pageSize) return locations;
+      skip += rows.length;
+    }
+  } catch (err) {
+    // 复合索引缺失时回退为无排序分页读取，顺序由调用方在 JS 中排序
+    console.warn('[locations] 排序分页读取失败，回退为无排序分页:', err);
+    const plain = [];
+    let plainSkip = 0;
+    while (true) {
+      const res = await db.collection('locations').skip(plainSkip).limit(pageSize).get();
+      const rows = res.data || [];
+      plain.push(...rows);
+      if (rows.length < pageSize) return plain;
+      plainSkip += rows.length;
+    }
   }
 }
 
@@ -71,19 +154,33 @@ function mapMonitor(location, orders) {
 }
 
 async function monitorDetail(id) {
-  const locRes = await db.collection('locations').doc(id).get();
-  const location = locRes.data;
+  let location = null;
+  try {
+    const locRes = await db.collection('locations').doc(id).get();
+    location = locRes.data;
+  } catch (err) {
+    return null;
+  }
   if (!location) return null;
-  const orderRes = await db.collection('work_orders').where({ location_id: id }).limit(1000).get();
-  const orders = orderRes.data || [];
+  let orders = [];
+  try {
+    const orderRes = await db.collection('work_orders').where({ location_id: id }).limit(1000).get();
+    orders = orderRes.data || [];
+  } catch (err) {
+    orders = [];
+  }
   const orderIds = orders.map((o) => o._id);
   const repairs = [];
   const accepts = [];
   for (const oid of orderIds) {
-    const rr = await db.collection('repair_records').where({ order_id: oid }).limit(1000).get();
-    repairs.push(...(rr.data || []));
-    const ar = await db.collection('acceptance_records').where({ order_id: oid }).limit(1000).get();
-    accepts.push(...(ar.data || []));
+    try {
+      const rr = await db.collection('repair_records').where({ order_id: oid }).limit(1000).get();
+      repairs.push(...(rr.data || []));
+    } catch (err) { /* 集合缺失时忽略 */ }
+    try {
+      const ar = await db.collection('acceptance_records').where({ order_id: oid }).limit(1000).get();
+      accepts.push(...(ar.data || []));
+    } catch (err) { /* 集合缺失时忽略 */ }
   }
   const actorIds = [...new Set([
     ...orders.flatMap((o) => [o.reporter_id, o.assigned_repairer_id, o.reviewer_id]),
@@ -92,8 +189,10 @@ async function monitorDetail(id) {
   ].filter(Boolean).map(String))];
   const userNames = new Map();
   if (actorIds.length) {
-    const userRes = await db.collection('users').where({ _id: _.in(actorIds) }).limit(1000).get();
-    (userRes.data || []).forEach((u) => userNames.set(String(u._id), u.real_name || u.username || ''));
+    try {
+      const userRes = await db.collection('users').where({ _id: _.in(actorIds) }).limit(1000).get();
+      (userRes.data || []).forEach((u) => userNames.set(String(u._id), u.real_name || u.username || ''));
+    } catch (err) { /* 用户集合缺失时回退为原始姓名 */ }
   }
   const nameOf = (idValue, fallback) => fallback || userNames.get(String(idValue)) || '';
   const timeline = [];
@@ -144,6 +243,9 @@ async function getCurrentUser(event) {
 
 exports.main = async (event) => {
   try {
+    // 宽松模式创建依赖集合（已存在则跳过）
+    await ensureCollection('locations');
+    await ensureCollection('work_orders');
     const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
 
@@ -152,27 +254,19 @@ exports.main = async (event) => {
     if (action === 'list') {
       let locations = await getAllLocations();
 
-      // 首次使用：集合为空则自动填充预设点位
+      // 首次使用：集合为空则自动填充默认点位
       if (!locations.length) {
-        const presets = [
-           { name: '3号楼道摄像头-01', area: '3号楼', device_type: '摄像头', sort_order: 1, status: 'active' },
-          { name: '大门入口摄像头-03', area: '大门', device_type: '摄像头', sort_order: 2, status: 'active' },
-          { name: '停车场摄像头-02', area: '停车场', device_type: '摄像头', sort_order: 3, status: 'active' },
-          { name: '2号楼道摄像头-01', area: '2号楼', device_type: '摄像头', sort_order: 4, status: 'active' },
-          { name: '围墙报警器-05', area: '围墙', device_type: '报警器', sort_order: 5, status: 'active' }
-        ];
-        for (const l of presets) {
-          await db.collection('locations').add({
-            data: { ...l, created_at: db.serverDate() }
-          });
-        }
+        await seedDefaultLocations();
         locations = await getAllLocations();
       }
+      locations.sort((a, b) => (Number(a.sort_order) || 0) - (Number(b.sort_order) || 0));
 
       return ok(locations.map((l) => ({ ...l, id: l._id })));
     }
 
     if (action === 'monitorOverview' || action === 'monitorStatus') {
+      // 集合为空时自动补种默认点位，保证监控表格首次打开即有数据
+      await seedDefaultLocations();
       const { locations, orders } = await monitorRows();
       const grouped = new Map(locations.map((l) => [String(l._id), []]));
       orders.forEach((o) => { const bucket = grouped.get(String(o.location_id)); if (bucket) bucket.push(o); });
