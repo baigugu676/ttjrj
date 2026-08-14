@@ -19,8 +19,7 @@ const COLLECTIONS = [
   'order_images',
   'repair_records',
   'acceptance_records',
-  'notifications',
-  'subscribe_records' // 订阅消息额度（一次性订阅，发送后消耗）
+  'notifications'
 ];
 
 async function ensureCollection(name) {

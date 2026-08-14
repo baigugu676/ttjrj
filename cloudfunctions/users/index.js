@@ -93,28 +93,6 @@ exports.main = async (event) => {
 
     const { action } = event || {};
 
-    // 订阅消息额度登记：任意已登录用户可调用（wx.requestSubscribeMessage 授权成功后前端上报）
-    if (action === 'subscribeSelf') {
-      const templateIds = Array.isArray(event.template_ids) ? event.template_ids : [];
-      let added = 0;
-      for (const tid of templateIds) {
-        if (!tid || typeof tid !== 'string' || tid.length > 64) continue;
-        try {
-          await db.collection('subscribe_records').add({
-            data: {
-              user_id: user._id,
-              template_id: tid,
-              created_at: db.serverDate()
-            }
-          });
-          added += 1;
-        } catch (err) {
-          console.warn('[users] 订阅额度登记失败:', err);
-        }
-      }
-      return ok({ count: added });
-    }
-
     if (user.role !== 'admin') return fail('无权限执行该操作');
 
     if (action === 'list') {

@@ -13,7 +13,6 @@
  *     - action: 'returned'       验收退回返修    → 通知维修人员 + 报修用户
  */
 const pool = require('../config/db');
-const { sendSubscribeMessage } = require('./wechat');
 
 /**
  * 查询所有启用状态的管理员ID
@@ -60,8 +59,6 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       for (const adminId of await getAdminIds()) {
         await sendNotification(adminId, orderId, 'order_submitted', '新工单待审核',
           `收到来自「${locationName}」的故障报修工单 ${orderNo}，请及时审核。`);
-        await sendSubscribeMessage(adminId, '新工单待审核',
-          `收到来自「${locationName}」的故障报修工单 ${orderNo}`, 'pages/admin/orders/orders');
       }
       break;
     }
@@ -69,13 +66,9 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       // 审核通过 → 通知报修用户 + 维修人员
       await sendNotification(reporterId, orderId, 'order_approved', '工单审核通过',
         `您的工单 ${orderNo}（${locationName}）审核通过，已指派维修人员，请耐心等待维修。`);
-      await sendSubscribeMessage(reporterId, '工单审核通过',
-        `您的工单 ${orderNo}（${locationName}）审核通过，已指派维修人员`, `pages/report/detail/detail?id=${orderId}`);
       if (repairerId) {
         await sendNotification(repairerId, orderId, 'order_approved', '新工单待接单',
           `管理员为您指派了工单 ${orderNo}（${locationName}），请及时接单处理。`);
-        await sendSubscribeMessage(repairerId, '新工单待接单',
-          `管理员为您指派了工单 ${orderNo}（${locationName}）`, 'pages/repair/mytasks/mytasks');
       }
       break;
     }
@@ -83,18 +76,12 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       // 审核驳回 → 通知报修用户
       await sendNotification(reporterId, orderId, 'order_rejected', '工单审核驳回',
         `您的工单 ${orderNo}（${locationName}）被驳回${extra ? `，原因：${extra}` : ''}。`);
-      await sendSubscribeMessage(reporterId, '工单审核驳回',
-        `您的工单 ${orderNo}（${locationName}）被驳回${extra ? `，原因：${extra}` : ''}`,
-        `pages/report/detail/detail?id=${orderId}`);
       break;
     }
     case 'accepted_repair': {
       // 维修人员接单 → 通知报修用户
       await sendNotification(reporterId, orderId, 'order_accepted_repair', '维修人员已接单',
         `您的工单 ${orderNo}（${locationName}）已被维修人员接单，正在维修中。`);
-      await sendSubscribeMessage(reporterId, '维修人员已接单',
-        `您的工单 ${orderNo}（${locationName}）已被维修人员接单，正在维修中`,
-        `pages/report/detail/detail?id=${orderId}`);
       break;
     }
     case 'repair_done': {
@@ -102,8 +89,6 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       for (const adminId of await getAdminIds()) {
         await sendNotification(adminId, orderId, 'order_repair_done', '维修完成待处理',
           `工单 ${orderNo}（${locationName}）已完成维修${extra ? `，${extra}` : ''}，请及时处理。`);
-        await sendSubscribeMessage(adminId, '维修完成待验收',
-          `工单 ${orderNo}（${locationName}）已完成维修，请及时验收`, 'pages/admin/orders/orders');
       }
       break;
     }
@@ -112,8 +97,6 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       if (repairerId) {
         await sendNotification(repairerId, orderId, 'order_accepted', '验收通过',
           `您维修的工单 ${orderNo}（${locationName}）已验收通过。`);
-        await sendSubscribeMessage(repairerId, '验收通过',
-          `您维修的工单 ${orderNo}（${locationName}）已验收通过`, 'pages/repair/mytasks/mytasks');
       }
       break;
     }
@@ -122,16 +105,10 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       if (repairerId) {
         await sendNotification(repairerId, orderId, 'order_returned', '验收退回返修',
           `您维修的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}，请返修处理。`);
-        await sendSubscribeMessage(repairerId, '验收退回返修',
-          `您维修的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}`,
-          'pages/repair/mytasks/mytasks');
       }
       if (reporterId) {
         await sendNotification(reporterId, orderId, 'order_returned', '工单验收退回',
           `您的工单 ${orderNo}（${locationName}）验收未通过${extra ? `，原因：${extra}` : ''}，维修人员将重新维修。`);
-        await sendSubscribeMessage(reporterId, '工单验收退回',
-          `您的工单 ${orderNo}（${locationName}）验收未通过，维修人员将重新维修`,
-          `pages/report/detail/detail?id=${orderId}`);
       }
       break;
     }

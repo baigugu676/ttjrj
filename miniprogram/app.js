@@ -77,34 +77,6 @@ App({
     });
   },
 
-  // 请求订阅消息授权：登录后调用一次（每自然日内最多一次，避免频繁打扰）
-  // 模板未配置（subscribe-config.js 中留空）时自动跳过
-  requestSubscribe() {
-    const info = this.globalData.userInfo;
-    if (!info || !info.role) return;
-    const config = require('./utils/subscribe-config.js');
-    const templateId = (config.TEMPLATE_IDS || {})[info.role];
-    if (!templateId) return;
-    const lastKey = 'subscribe_requested_at';
-    const last = Number(wx.getStorageSync(lastKey)) || 0;
-    if (Date.now() - last < 24 * 3600 * 1000) return;
-    wx.requestSubscribeMessage({
-      tmplIds: [templateId],
-      success: (res) => {
-        wx.setStorageSync(lastKey, Date.now());
-        if (res[templateId] === 'accept') {
-          // 授权成功：向云端登记一条订阅额度（一次性订阅，发送后消耗）
-          api.callCloud('users', {
-            action: 'subscribeSelf',
-            template_ids: [templateId],
-            _token: this.globalData.token || ''
-          }, { loading: false, silent: true }).catch(() => {});
-        }
-      },
-      fail: () => {}
-    });
-  },
-
   // 退出登录：清空本地登录态并跳转登录页
   logout() {
     this.globalData.token = '';

@@ -37,8 +37,6 @@ Page({
     }
     this.setData({ logging: true });
     app.login(username.trim(), password).then(() => {
-      // 登录成功后请求订阅消息授权（用于接收工单状态微信推送）
-      app.requestSubscribe();
       wx.showToast({ title: '登录成功', icon: 'success' });
       setTimeout(() => {
         wx.switchTab({ url: '/pages/index/index' });

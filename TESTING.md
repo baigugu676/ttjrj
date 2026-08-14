@@ -34,4 +34,3 @@ find backend/src backend/scripts cloudfunctions miniprogram -name "*.js" -not -p
 
 - 云函数与 REST 保持同一业务口径：今日完成 = 今日验收通过；待处理(维修员) = 待接单 + 退回维修；点位启用 = 非 inactive。
 - 身份校验：云函数以微信 OPENID 为唯一可信身份，`_token` 必须与 OPENID 绑定一致才生效。
-- 订阅消息：在 `miniprogram/utils/subscribe-config.js` 与 `cloudfunctions/orders/subscribe.js` 中配置模板 ID 后生效；模板 ID 留空时自动跳过。
