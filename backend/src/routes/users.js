@@ -18,7 +18,8 @@ router.use(auth, requireRole('admin'));
 router.get('/', async (req, res, next) => {
   try {
     const { role, keyword: rawKeyword } = req.query;
-    let sql = `SELECT id, username, openid, real_name, role, phone, avatar_url, status, created_at, updated_at
+    // 不下发 openid（微信身份标识仅服务端内部使用）
+    let sql = `SELECT id, username, real_name, role, phone, avatar_url, status, created_at, updated_at
                FROM users WHERE 1=1`;
     const params = [];
 
@@ -112,6 +113,21 @@ router.put('/:id', async (req, res, next) => {
       if (!['admin', 'user', 'repairer'].includes(role)) {
         return res.json({ code: 1, message: '角色不合法' });
       }
+      // 防呆：不能修改自己的角色；降级最后一名活跃管理员会导致系统无人管理
+      if (id === req.user.id && role !== 'admin') {
+        return res.json({ code: 1, message: '不能修改当前登录账号的角色' });
+      }
+      if (role !== 'admin') {
+        const [targetRows] = await pool.query(`SELECT role FROM users WHERE id = ?`, [id]);
+        if (targetRows.length > 0 && targetRows[0].role === 'admin') {
+          const [adminRows] = await pool.query(
+            `SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin' AND status = 'active'`
+          );
+          if (adminRows[0].cnt <= 1) {
+            return res.json({ code: 1, message: '系统至少保留一名活跃管理员' });
+          }
+        }
+      }
       sets.push('role = ?');
       params.push(role);
     }
@@ -172,6 +188,19 @@ router.put('/:id/status', async (req, res, next) => {
       return res.json({ code: 1, message: '不能禁用当前登录账号' });
     }
 
+    // 不允许禁用最后一名活跃管理员
+    if (status === 'disabled') {
+      const [targetRows] = await pool.query(`SELECT role FROM users WHERE id = ?`, [id]);
+      if (targetRows.length > 0 && targetRows[0].role === 'admin') {
+        const [adminRows] = await pool.query(
+          `SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin' AND status = 'active'`
+        );
+        if (adminRows[0].cnt <= 1) {
+          return res.json({ code: 1, message: '系统至少保留一名活跃管理员' });
+        }
+      }
+    }
+
     const [result] = await pool.query(`UPDATE users SET status = ? WHERE id = ?`, [status, id]);
     if (result.affectedRows === 0) {
       return res.json({ code: 1, message: '用户不存在' });
@@ -197,6 +226,15 @@ router.delete('/:id', async (req, res, next) => {
     // 不允许删除自己
     if (id === req.user.id) {
       return res.json({ code: 1, message: '不能删除当前登录账号' });
+    }
+
+    // 不允许删除最后一名管理员（无论是否活跃）
+    const [targetRows] = await pool.query(`SELECT role FROM users WHERE id = ?`, [id]);
+    if (targetRows.length > 0 && targetRows[0].role === 'admin') {
+      const [adminRows] = await pool.query(`SELECT COUNT(*) AS cnt FROM users WHERE role = 'admin'`);
+      if (adminRows[0].cnt <= 1) {
+        return res.json({ code: 1, message: '系统至少保留一名管理员' });
+      }
     }
 
     const [result] = await pool.query(`DELETE FROM users WHERE id = ?`, [id]);

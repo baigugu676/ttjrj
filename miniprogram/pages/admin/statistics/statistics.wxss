@@ -101,3 +101,100 @@
   font-weight: 600;
   margin-left: 16rpx;
 }
+
+/* 导出按钮 */
+.home-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16rpx 24rpx 0;
+}
+.export-btn {
+  font-size: 26rpx;
+  color: #07C160;
+  padding: 8rpx 20rpx;
+  background: #E8F9EF;
+  border-radius: 24rpx;
+}
+
+/* 加载失败提示 */
+.load-error {
+  margin: 16rpx 24rpx 0;
+  padding: 20rpx;
+  background: #FFF7E6;
+  color: #D48806;
+  font-size: 26rpx;
+  border-radius: 12rpx;
+  text-align: center;
+}
+
+/* 趋势折线图 */
+.trend-canvas {
+  width: 100%;
+  height: 320rpx;
+}
+.legend {
+  display: flex;
+  gap: 32rpx;
+  padding: 8rpx 0 16rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 8rpx;
+}
+.legend-dot {
+  width: 16rpx;
+  height: 16rpx;
+  border-radius: 50%;
+}
+.legend-dot.new { background: #1677FF; }
+.legend-dot.done { background: #07C160; }
+.legend-dot.wdone { background: #07C160; }
+.legend-dot.wdoing { background: #10AEFF; }
+.legend-dot.wpending { background: #FF9500; }
+
+/* 维修人员工作量堆叠条 */
+.work-legend {
+  display: flex;
+  gap: 24rpx;
+  padding: 8rpx 0 16rpx;
+  font-size: 24rpx;
+  color: #666;
+}
+.work-row {
+  display: flex;
+  align-items: center;
+  margin-bottom: 16rpx;
+}
+.work-name {
+  width: 160rpx;
+  font-size: 26rpx;
+  color: #333;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.work-track {
+  flex: 1;
+  display: flex;
+  height: 28rpx;
+  background: #F5F5F5;
+  border-radius: 8rpx;
+  overflow: hidden;
+}
+.work-seg.done { background: #07C160; }
+.work-seg.doing { background: #10AEFF; }
+.work-seg.pending { background: #FF9500; }
+.work-total {
+  width: 110rpx;
+  text-align: right;
+  font-size: 24rpx;
+  color: #666;
+}
+.work-detail {
+  font-size: 22rpx;
+  color: #999;
+  margin-bottom: 12rpx;
+}

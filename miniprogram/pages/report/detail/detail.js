@@ -9,7 +9,8 @@ Page({
     statusText: '',
     steps: [],            // 时间线步骤
     reportImages: [],     // 报修照片
-    repairInfo: null      // 维修记录（含维修前后照片）
+    repairInfo: null,     // 维修记录（含维修前后照片）
+    loadError: false      // 加载失败状态
   },
 
   onLoad(options) {
@@ -24,6 +25,7 @@ Page({
   },
 
   loadDetail() {
+    this.setData({ loadError: false });
     return api.get('/orders/' + this.data.id, {}, { loading: false }).then((order) => {
       const images = util.splitImages(order);
       const repair = util.getRepairRecord(order);
@@ -47,7 +49,11 @@ Page({
       wx.setNavigationBarTitle({
         title: order.order_no ? ('工单 ' + order.order_no) : '报修详情'
       });
-    }).catch((err) => { console.error('[detail] 加载工单详情失败:', err); });
+    }).catch((err) => {
+      console.error('[detail] 加载工单详情失败:', err);
+      // 失败可重试，不永久停留在加载中
+      this.setData({ loadError: true });
+    });
   },
 
   // 预览报修照片

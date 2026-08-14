@@ -1,5 +1,13 @@
-<!-- 数据统计看板（管理员）：4个数字卡片 + 状态分布条形图 + 点位故障排行 + 维修人员工作量 -->
+<!-- 数据统计看板（管理员）：4个数字卡片 + 状态分布条形图 + 近30天趋势折线图 + 点位故障排行 + 维修人员工作量 + 导出 -->
 <view class="page">
+  <!-- 导出按钮 -->
+  <view class="home-bar">
+    <view class="export-btn" bindtap="onExport">{{exporting ? '导出中...' : '⬇ 导出报表CSV'}}</view>
+  </view>
+
+  <!-- 加载失败提示 -->
+  <view class="load-error" wx:if="{{loadError}}" bindtap="loadAll">{{loadError}}，点击重试</view>
+
   <!-- 概览数字卡片 -->
   <view class="stats-grid">
     <view class="stat-card">
@@ -28,6 +36,17 @@
     </view>
   </view>
 
+  <!-- 近30天趋势折线图 -->
+  <view class="card">
+    <view class="card-title">近30天趋势</view>
+    <view class="legend">
+      <view class="legend-item"><view class="legend-dot new"></view>新增报修</view>
+      <view class="legend-item"><view class="legend-dot done"></view>完成维修</view>
+    </view>
+    <canvas canvas-id="trendChart" class="trend-canvas"></canvas>
+    <view class="empty" wx:if="{{!trend.length}}">暂无趋势数据</view>
+  </view>
+
   <!-- 工单状态分布（CSS 横向条形图） -->
   <view class="card">
     <view class="card-title">工单状态分布</view>
@@ -52,13 +71,25 @@
     <view class="empty" wx:if="{{!locationRank.length}}">暂无数据</view>
   </view>
 
-  <!-- 维修人员工作量 -->
+  <!-- 维修人员工作量（堆叠条形图） -->
   <view class="card">
     <view class="card-title">维修人员工作量</view>
-    <view class="rank-row" wx:for="{{repairerWorkload}}" wx:key="index">
-      <view class="rank-no {{index < 3 ? 'top' : ''}}">{{index + 1}}</view>
-      <view class="rank-name">{{item.name || item.real_name || item.repairer_name || '维修人员'}}</view>
-      <view class="rank-count">{{item.count || 0}} 单</view>
+    <view class="work-legend">
+      <view class="legend-item"><view class="legend-dot wdone"></view>已完成</view>
+      <view class="legend-item"><view class="legend-dot wdoing"></view>维修中</view>
+      <view class="legend-item"><view class="legend-dot wpending"></view>待处理</view>
+    </view>
+    <view class="work-row" wx:for="{{repairerWorkload}}" wx:key="index">
+      <view class="work-name">{{item.name}}</view>
+      <view class="work-track">
+        <view class="work-seg done" style="width: {{item.completed_pct}}%;"></view>
+        <view class="work-seg doing" style="width: {{item.repairing_pct}}%;"></view>
+        <view class="work-seg pending" style="width: {{item.pending_pct}}%;"></view>
+      </view>
+      <view class="work-total">{{item.total}} 单</view>
+    </view>
+    <view class="work-detail" wx:for="{{repairerWorkload}}" wx:key="index">
+      {{item.name}}：已完成 {{item.completed}} · 维修中 {{item.repairing}} · 待处理 {{item.pending}}
     </view>
     <view class="empty" wx:if="{{!repairerWorkload.length}}">暂无数据</view>
   </view>

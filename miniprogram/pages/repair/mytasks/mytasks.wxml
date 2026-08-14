@@ -1,5 +1,10 @@
 <!-- 我的维修任务：维修中 / 待验收 / 已完成 -->
 <view class="page">
+  <!-- 本页由「工单」tab 进入（tabBar 不可见），提供首页入口避免导航死胡同 -->
+  <view class="home-bar">
+    <view class="home-btn" bindtap="goHome">🏠 返回首页</view>
+  </view>
+
   <view class="tabs">
     <view class="tab {{tab === item.value ? 'active' : ''}}"
       wx:for="{{tabs}}" wx:key="value" bindtap="onTabChange" data-value="{{item.value}}">

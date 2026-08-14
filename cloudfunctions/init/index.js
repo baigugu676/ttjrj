@@ -19,7 +19,8 @@ const COLLECTIONS = [
   'order_images',
   'repair_records',
   'acceptance_records',
-  'notifications'
+  'notifications',
+  'subscribe_records' // 订阅消息额度（一次性订阅，发送后消耗）
 ];
 
 async function ensureCollection(name) {
@@ -48,8 +49,12 @@ async function seedLocations() {
       status: 'active'
     });
   }
-  const existing = await db.collection('locations').field({ name: true }).limit(1000).get();
-  const existingNames = new Set((existing.data || []).map((l) => l.name));
+  const existingNames = new Set();
+  for (let skip = 0; ; skip += 1000) {
+    const existing = await db.collection('locations').field({ name: true }).skip(skip).limit(1000).get();
+    (existing.data || []).forEach((l) => existingNames.add(l.name));
+    if ((existing.data || []).length < 1000) break;
+  }
   const missing = locations.filter((l) => !existingNames.has(l.name));
   for (let i = 0; i < missing.length; i += 20) {
     await Promise.all(missing.slice(i, i + 20).map((l) => db.collection('locations').add({
@@ -59,7 +64,21 @@ async function seedLocations() {
   return missing.length ? 'seeded' : 'skipped';
 }
 
-exports.main = async () => {
+exports.main = async (event) => {
+  // 系统已存在用户时仅管理员可触发初始化；首次部署（无任何用户）时允许直接初始化
+  try {
+    const usersCount = await db.collection('users').count();
+    if ((usersCount.total || 0) > 0) {
+      const { OPENID } = cloud.getWXContext();
+      const res = await db.collection('users').where({ openid: OPENID || '' }).limit(1).get();
+      const u = res.data[0];
+      if (!u || u.role !== 'admin' || u.status !== 'active') {
+        return { code: 1, message: '仅管理员可执行初始化' };
+      }
+    }
+  } catch (err) {
+    // users 集合不存在时视为首次初始化，继续执行
+  }
   const created = [];
   for (const name of COLLECTIONS) {
     if (await ensureCollection(name)) created.push(name);

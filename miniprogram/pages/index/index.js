@@ -43,16 +43,6 @@ Page({
     }
   },
 
-  // 查询工单列表并返回 total（用于统计卡片数字）
-  countOrders(params) {
-    return api.get('/orders', Object.assign({ page: 1, pageSize: 1 }, params), { loading: false })
-      .then((res) => {
-        if (Array.isArray(res)) return res.length;
-        return (res && res.total) || 0;
-      })
-      .catch(() => 0);
-  },
-
   // 取列表数据（兼容 {list} 与裸数组）
   extractList(res) {
     if (Array.isArray(res)) return res;

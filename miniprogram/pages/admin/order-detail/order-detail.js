@@ -15,7 +15,8 @@ Page({
     reporterName: '',     // 报修人姓名
     repairers: [],        // 可指派的维修人员列表
     repairerNames: [],    // 维修人员姓名（picker 展示）
-    repairerIndex: -1     // 选中的维修人员下标
+    repairerIndex: -1,    // 选中的维修人员下标
+    loadError: false      // 加载失败状态
   },
 
   onLoad(options) {
@@ -38,6 +39,7 @@ Page({
 
   // 加载工单详情
   loadDetail() {
+    this.setData({ loadError: false });
     return api.get('/orders/' + this.data.id, {}, { loading: false }).then((order) => {
       const images = util.splitImages(order);
       const repair = util.getRepairRecord(order);
@@ -62,7 +64,11 @@ Page({
       wx.setNavigationBarTitle({
         title: order.order_no ? ('工单 ' + order.order_no) : '工单详情'
       });
-    }).catch((err) => { console.error('[order-detail] 加载工单详情失败:', err); });
+    }).catch((err) => {
+      console.error('[order-detail] 加载工单详情失败:', err);
+      // 失败可重试，不永久停留在加载中
+      this.setData({ loadError: true });
+    });
   },
 
   // 加载维修人员列表（审核通过时需指派）
@@ -124,7 +130,10 @@ Page({
     api.put('/orders/' + this.data.id + '/review', data).then(() => {
       wx.showToast({ title: '操作成功', icon: 'success' });
       this.loadDetail();
-    }).catch((err) => { console.error('[order-detail] 审核提交失败:', err); });
+    }).catch((err) => {
+      console.error('[order-detail] 审核提交失败:', err);
+      wx.showToast({ title: (err && err.message) || '审核操作失败', icon: 'none' });
+    });
   },
 
   // ===== 验收操作 =====
@@ -164,7 +173,10 @@ Page({
     api.put('/orders/' + this.data.id + '/accept', data).then(() => {
       wx.showToast({ title: '操作成功', icon: 'success' });
       this.loadDetail();
-    }).catch((err) => { console.error('[order-detail] 验收提交失败:', err); });
+    }).catch((err) => {
+      console.error('[order-detail] 验收提交失败:', err);
+      wx.showToast({ title: (err && err.message) || '验收操作失败', icon: 'none' });
+    });
   },
 
   // 预览照片

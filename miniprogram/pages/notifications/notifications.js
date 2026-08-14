@@ -14,12 +14,14 @@ Page({
   onLoad() {
     const app = getApp();
     if (!app.checkLogin()) return;
-    this.loadList(true);
+    // 首次加载交给 onShow（onLoad 后必触发），避免首屏重复请求
   },
 
   onShow() {
     // 每次进入页面刷新
-    this.loadList(true);
+    if (getApp().globalData.token) {
+      this.loadList(true);
+    }
   },
 
   loadList(reset) {
@@ -41,6 +43,7 @@ Page({
     }).catch((err) => {
       console.error('[notifications] 加载通知失败:', err);
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '通知加载失败', icon: 'none' });
     }).finally(() => {
       wx.stopPullDownRefresh();
     });
@@ -114,9 +117,23 @@ Page({
       this.setData({ list });
       getApp().refreshUnreadBadge();
     }
-    // 跳转工单详情
+    // 跳转工单详情：按角色分流，管理员进入可审核/验收的管理端详情，维修人员按通知类型进入维修执行/详情
     if (orderId) {
-      wx.navigateTo({ url: '/pages/report/detail/detail?id=' + orderId });
+      const role = getApp().getRole();
+      const item = this.data.list[index] || {};
+      const type = item.type;
+      if (role === 'admin') {
+        wx.navigateTo({ url: '/pages/admin/order-detail/order-detail?id=' + orderId });
+      } else if (role === 'repairer') {
+        // 新指派（待接单，执行页会自动接单）与验收退回 → 直接进入维修执行页
+        if (type === 'order_approved' || type === 'order_returned') {
+          wx.navigateTo({ url: '/pages/repair/execute/execute?id=' + orderId });
+        } else {
+          wx.navigateTo({ url: '/pages/report/detail/detail?id=' + orderId });
+        }
+      } else {
+        wx.navigateTo({ url: '/pages/report/detail/detail?id=' + orderId });
+      }
     }
   }
 });

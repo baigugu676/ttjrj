@@ -1,6 +1,7 @@
 /**
  * 用户管理云函数（微信云开发）
- * 全部操作仅管理员可用。身份由调用者 OPENID 识别。
+ * 全部操作仅管理员可用。身份以微信 OPENID 为唯一可信身份，
+ * _token 仅作账号提示（必须与 OPENID 绑定一致才有效）。
  *
  * 入参（action）：
  *   list    { role?, keyword?, page?, pageSize? }          用户列表（分页）
@@ -26,48 +27,110 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
+// 账号被禁用的哨兵值：与「未登录」区分，返回更明确的中文提示
+const DISABLED_USER = { __disabled: true };
+
+/**
+ * 获取当前登录用户。
+ * 安全约束：微信 OPENID 是唯一可信身份。_token（裸用户 _id）仅作账号提示，
+ * 必须与当前微信 OPENID 绑定的用户一致才生效，否则回落 OPENID 查询——防止
+ * 客户端伪造他人 _id 提权。
+ */
 async function getCurrentUser(event) {
+  const { OPENID } = cloud.getWXContext();
+  if (!OPENID) return null;
   const token = event && event._token ? String(event._token) : '';
   if (token) {
     try {
       const byToken = await db.collection('users').doc(token).get();
-      if (byToken.data) return byToken.data;
+      if (byToken.data) {
+        const u = byToken.data;
+        if (u.openid === OPENID) {
+          return u.status === 'disabled' ? DISABLED_USER : u;
+        }
+      }
     } catch (e) {
       // ignore token miss and fallback to OPENID
     }
   }
-  const { OPENID } = cloud.getWXContext();
-  if (!OPENID) return null;
   const res = await db.collection('users').where({ openid: OPENID }).limit(1).get();
-  return res.data[0] || null;
+  const u = res.data[0] || null;
+  if (!u) return null;
+  return u.status === 'disabled' ? DISABLED_USER : u;
 }
 
+/**
+ * 分页拉全量（云数据库单次 get 上限 1000 条，超出需分页）
+ */
+async function fetchAll(baseQuery, pageSize = 1000, maxPages = 50) {
+  const out = [];
+  for (let page = 0; page < maxPages; page++) {
+    const res = await baseQuery.skip(page * pageSize).limit(pageSize).get();
+    out.push(...res.data);
+    if (res.data.length < pageSize) break;
+  }
+  return out;
+}
+
+// 对外输出时剔除敏感字段（password_hash、openid）
 function safeUser(u) {
-  const { password_hash, _id, ...rest } = u;
+  const { password_hash, openid, _id, ...rest } = u;
   return { ...rest, id: _id };
 }
 
 const VALID_ROLES = ['admin', 'user', 'repairer'];
 
+async function getActiveAdminCount() {
+  const res = await db.collection('users').where({ role: 'admin', status: 'active' }).count();
+  return res.total || 0;
+}
+
 exports.main = async (event) => {
   try {
     const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
-    if (user.role !== 'admin') return fail('无权限执行该操作');
+    if (user === DISABLED_USER) return fail('账号已被禁用，请联系管理员');
 
     const { action } = event || {};
+
+    // 订阅消息额度登记：任意已登录用户可调用（wx.requestSubscribeMessage 授权成功后前端上报）
+    if (action === 'subscribeSelf') {
+      const templateIds = Array.isArray(event.template_ids) ? event.template_ids : [];
+      let added = 0;
+      for (const tid of templateIds) {
+        if (!tid || typeof tid !== 'string' || tid.length > 64) continue;
+        try {
+          await db.collection('subscribe_records').add({
+            data: {
+              user_id: user._id,
+              template_id: tid,
+              created_at: db.serverDate()
+            }
+          });
+          added += 1;
+        } catch (err) {
+          console.warn('[users] 订阅额度登记失败:', err);
+        }
+      }
+      return ok({ count: added });
+    }
+
+    if (user.role !== 'admin') return fail('无权限执行该操作');
 
     if (action === 'list') {
       const page = Math.max(1, Number(event.page) || 1);
       const pageSize = Math.min(100, Math.max(1, Number(event.pageSize) || 20));
-      const where = {};
-      if (event.role && VALID_ROLES.includes(event.role)) where.role = event.role;
+      // 角色过滤下沉到数据库，分页拉全量后仅在内存做关键字过滤与分页
+      let all = [];
+      if (event.role && VALID_ROLES.includes(event.role)) {
+        all = await fetchAll(db.collection('users').where({ role: event.role }).orderBy('created_at', 'asc'));
+      } else {
+        all = await fetchAll(db.collection('users').orderBy('created_at', 'asc'));
+      }
       const keyword = event.keyword ? String(event.keyword).trim().toLowerCase() : '';
-      const res = await db.collection('users').where(where)
-        .orderBy('created_at', 'asc').limit(1000).get();
       const filtered = keyword
-        ? res.data.filter((u) => `${u.username || ''} ${u.real_name || ''} ${u.phone || ''}`.toLowerCase().includes(keyword))
-        : res.data;
+        ? all.filter((u) => `${u.username || ''} ${u.real_name || ''} ${u.phone || ''}`.toLowerCase().includes(keyword))
+        : all;
       const start = (page - 1) * pageSize;
       return ok({
         list: filtered.slice(start, start + pageSize).map(safeUser),
@@ -117,10 +180,24 @@ exports.main = async (event) => {
 
     if (action === 'update') {
       const { id } = event;
+      let target = null;
+      try {
+        target = (await db.collection('users').doc(id).get()).data;
+      } catch (e) {
+        return fail('用户不存在');
+      }
       const data = {};
       if (event.real_name !== undefined) data.real_name = event.real_name;
       if (event.role !== undefined) {
         if (!VALID_ROLES.includes(event.role)) return fail('角色不合法');
+        // 防呆：不能修改自己的角色；降级最后一名活跃管理员会导致系统无人管理
+        if (String(id) === String(user._id) && event.role !== 'admin') {
+          return fail('不能修改当前登录账号的角色');
+        }
+        if (target.role === 'admin' && event.role !== 'admin') {
+          const adminCount = await getActiveAdminCount();
+          if (adminCount <= 1) return fail('系统至少保留一名活跃管理员');
+        }
         data.role = event.role;
       }
       if (event.phone !== undefined) {
@@ -136,11 +213,7 @@ exports.main = async (event) => {
       }
       if (!Object.keys(data).length) return fail('没有需要更新的字段');
       data.updated_at = db.serverDate();
-      try {
-        await db.collection('users').doc(id).update({ data });
-      } catch (e) {
-        return fail('用户不存在');
-      }
+      await db.collection('users').doc(id).update({ data });
       return ok(null);
     }
 
@@ -151,6 +224,19 @@ exports.main = async (event) => {
       }
       if (id === user._id && status === 'disabled') {
         return fail('不能禁用当前登录账号');
+      }
+      if (status === 'disabled') {
+        // 不允许禁用最后一名活跃管理员
+        let target = null;
+        try {
+          target = (await db.collection('users').doc(id).get()).data;
+        } catch (e) {
+          return fail('用户不存在');
+        }
+        if (target.role === 'admin') {
+          const adminCount = await getActiveAdminCount();
+          if (adminCount <= 1) return fail('系统至少保留一名活跃管理员');
+        }
       }
       try {
         await db.collection('users').doc(id).update({
@@ -165,15 +251,30 @@ exports.main = async (event) => {
     if (action === 'delete') {
       const { id } = event;
       if (id === user._id) return fail('不能删除当前登录账号');
-      const linked = await db.collection('work_orders').where(
-        _.or([{ reporter_id: id }, { assigned_repairer_id: id }, { reviewer_id: id }])
-      ).limit(1).get();
-      if (linked.data.length) return fail('该用户存在关联的工单等数据，无法删除');
+      let target = null;
       try {
-        await db.collection('users').doc(id).remove();
+        target = (await db.collection('users').doc(id).get()).data;
       } catch (e) {
         return fail('用户不存在');
       }
+      if (target.role === 'admin') {
+        const adminRes = await db.collection('users').where({ role: 'admin' }).count();
+        if ((adminRes.total || 0) <= 1) return fail('系统至少保留一名管理员');
+      }
+      // 关联检查：工单、维修记录、验收记录、通知
+      const linkedOrder = await db.collection('work_orders').where(
+        _.or([{ reporter_id: id }, { assigned_repairer_id: id }, { reviewer_id: id }])
+      ).limit(1).get();
+      if (linkedOrder.data.length) return fail('该用户存在关联的工单等数据，无法删除');
+      const [linkedRepair, linkedAccept, linkedNotify] = await Promise.all([
+        db.collection('repair_records').where({ repairer_id: id }).limit(1).get(),
+        db.collection('acceptance_records').where({ reviewer_id: id }).limit(1).get(),
+        db.collection('notifications').where({ user_id: id }).limit(1).get()
+      ]);
+      if (linkedRepair.data.length || linkedAccept.data.length || linkedNotify.data.length) {
+        return fail('该用户存在关联的维修/验收/通知数据，无法删除');
+      }
+      await db.collection('users').doc(id).remove();
       return ok(null);
     }
 

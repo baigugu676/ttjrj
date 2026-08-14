@@ -39,3 +39,24 @@
   color: #999999;
   padding: 20rpx 0;
 }
+
+/* 首页返回条（本页无 tabBar，提供导航出口） */
+.home-bar {
+  display: flex;
+  justify-content: flex-end;
+  padding: 16rpx 24rpx 0;
+}
+.home-btn {
+  font-size: 26rpx;
+  color: #1677FF;
+  padding: 8rpx 20rpx;
+  background: #E8F2FF;
+  border-radius: 24rpx;
+}
+
+/* 「查看详情」按钮样式（原定义在 admin/orders 页，此处补齐） */
+.btn-view {
+  background: #FFFFFF;
+  color: #1677FF;
+  border: 1rpx solid #1677FF;
+}

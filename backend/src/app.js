@@ -14,8 +14,21 @@ dotenv.config();
 
 const app = express();
 
-// CORS 配置：允许跨域访问
-app.use(cors());
+// CORS 配置：可通过环境变量 CORS_ORIGINS（逗号分隔）配置可信来源白名单；
+// 未配置时保持默认放开（小程序/移动端请求不带 Origin，仅 Web 管理后台需要收紧）
+const corsOrigins = (process.env.CORS_ORIGINS || '')
+  .split(',').map((s) => s.trim()).filter(Boolean);
+if (corsOrigins.length) {
+  app.use(cors({
+    origin: (origin, cb) => {
+      // 无 Origin 的请求（小程序/原生客户端/curl）直接放行
+      if (!origin || corsOrigins.includes(origin)) return cb(null, true);
+      return cb(new Error('CORS 来源不被允许'));
+    }
+  }));
+} else {
+  app.use(cors());
+}
 
 // 解析 JSON 请求体
 app.use(express.json({ limit: '10mb' }));
@@ -60,9 +73,12 @@ app.use((err, req, res, next) => {
   if (err.statusCode) {
     return res.status(err.statusCode).json({ code: 1, message: err.message });
   }
-  // 其他未预期错误
+  // 其他未预期错误：生产环境不向客户端泄漏内部错误细节，仅记录到服务端日志
   console.error('[全局错误]', err);
-  res.status(500).json({ code: 1, message: err.message || '服务器内部错误' });
+  const message = process.env.NODE_ENV === 'production'
+    ? '服务器内部错误，请稍后重试'
+    : (err.message || '服务器内部错误');
+  res.status(500).json({ code: 1, message });
 });
 
 module.exports = app;

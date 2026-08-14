@@ -166,11 +166,6 @@ function resolveTarget(method, url, data) {
     if (act) return { name: 'statistics', data: { action: act } };
   }
 
-  // /dashboard —— 按当前角色聚合首页数据
-  if (first === 'dashboard' && method === 'GET') {
-    return { name: 'dashboard', data: {} };
-  }
-
   // /notifications...
   if (first === 'notifications') {
     const id = segs[1];
@@ -229,11 +224,14 @@ function upload(filePath, formData = {}, options = {}) {
       success: (res) => {
         const fileID = res.fileID;
         // 记录到 order_images；即使记录失败也不影响图片已上传
+        // 携带 _token 便于服务端识别当前账号（云函数会校验其与 OPENID 绑定一致）
+        const token = wx.getStorageSync('token') || '';
         callCloud('orders', {
           action: 'addImage',
           order_id: formData.order_id,
           image_url: fileID,
-          image_type: formData.image_type || 'report'
+          image_type: formData.image_type || 'report',
+          _token: token
         }, { loading: false, silent: true }).then((result) => {
           resolve({ url: fileID, fileID, order_image_id: result && result.order_image_id });
         }).catch((err) => {
@@ -264,10 +262,42 @@ function upload(filePath, formData = {}, options = {}) {
   });
 }
 
+/**
+ * 客户端导出 CSV：拼装数据 → 写入本地临时文件 → 上传云存储 → 返回 fileID
+ * @param {String} filename  云存储文件名（exports/ 目录下）
+ * @param {Array}  rows       二维数组（第一行可作表头）
+ */
+function exportCsv(filename, rows) {
+  const esc = (v) => {
+    const s = v === null || v === undefined ? '' : String(v);
+    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+  };
+  const csv = '﻿' + (rows || []).map((r) => r.map(esc).join(',')).join('\r\n');
+  const fs = wx.getFileSystemManager();
+  const filePath = wx.env.USER_DATA_PATH + '/' + filename;
+  return new Promise((resolve, reject) => {
+    fs.writeFile({
+      filePath,
+      data: csv,
+      encoding: 'utf8',
+      success: () => {
+        wx.cloud.uploadFile({
+          cloudPath: 'exports/' + filename,
+          filePath,
+          success: (res) => resolve(res.fileID),
+          fail: (err) => reject(new Error((err && err.errMsg) || '上传失败'))
+        });
+      },
+      fail: (err) => reject(new Error((err && err.errMsg) || '写入临时文件失败'))
+    });
+  });
+}
+
 module.exports = {
   SERVER_BASE,
   BASE_URL,
   callCloud,
+  exportCsv,
   get(url, params, options) {
     return request('GET', url, params, options);
   },

@@ -176,3 +176,15 @@ SELECT CONCAT('监控点位-', LPAD(n, 3, '0')),
        n,
        'active'
 FROM seq;
+
+-- ------------------------------------------------------------
+-- 9. 订阅消息额度表（一次性订阅：前端授权成功后登记一条，发送成功后消耗一条）
+-- ------------------------------------------------------------
+CREATE TABLE IF NOT EXISTS subscribe_records (
+  id          INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '记录ID',
+  user_id     INT UNSIGNED NOT NULL COMMENT '接收人ID（users.id）',
+  template_id VARCHAR(64)  NOT NULL COMMENT '订阅消息模板ID',
+  created_at  DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '授权时间',
+  KEY idx_sub_user (user_id),
+  CONSTRAINT fk_sub_user FOREIGN KEY (user_id) REFERENCES users (id) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='订阅消息额度表';

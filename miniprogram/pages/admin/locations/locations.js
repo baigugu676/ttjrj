@@ -58,6 +58,7 @@ Page({
     }).catch((err) => {
       console.error('[locations] 加载点位列表失败:', err);
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '点位列表加载失败', icon: 'none' });
     });
   },
 
@@ -137,7 +138,10 @@ Page({
         api.del('/locations/' + id).then(() => {
           wx.showToast({ title: '删除成功', icon: 'success' });
           this.loadList();
-        }).catch((err) => { console.error('[locations] 删除点位失败:', err); });
+        }).catch((err) => {
+          console.error('[locations] 删除点位失败:', err);
+          wx.showToast({ title: (err && err.message) || '删除失败，请重试', icon: 'none' });
+        });
       }
     });
   }

@@ -107,4 +107,9 @@
   </view>
 </view>
 
+<view class="empty" wx:elif="{{loadError}}">
+  <text>工单加载失败，请检查网络</text>
+  <button class="btn btn-default" bindtap="loadDetail">重新加载</button>
+</view>
+
 <view class="empty" wx:else>加载中...</view>

@@ -1,3 +1,4 @@
 {
-  "navigationBarTitleText": "新建报修"
+  "navigationBarTitleText": "新建报修",
+  "enablePullDownRefresh": true
 }

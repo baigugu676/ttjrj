@@ -27,6 +27,11 @@ Page({
     this.loadLocations();
   },
 
+  onPullDownRefresh() {
+    this.loadLocations();
+    wx.stopPullDownRefresh();
+  },
+
   // 获取点位列表
   loadLocations() {
     api.get('/locations', {}, { loading: false }).then((list) => {
@@ -36,7 +41,10 @@ Page({
         filteredLocations: locations,
         locationNames: locations.map((l) => this.getLocationLabel(l))
       });
-    }).catch((err) => { console.error('[create] 加载点位列表失败:', err); });
+    }).catch((err) => {
+      console.error('[create] 加载点位列表失败:', err);
+      wx.showToast({ title: '点位列表加载失败，请下拉页面后重试', icon: 'none' });
+    });
   },
 
   onLocationChange(e) {
@@ -89,12 +97,14 @@ Page({
       wx.showToast({ title: '最多上传9张图片', icon: 'none' });
       return;
     }
-    wx.chooseImage({
+    // wx.chooseMedia 替代已废弃的 wx.chooseImage
+    wx.chooseMedia({
       count: remain,
+      mediaType: ['image'],
       sizeType: ['compressed'],
       sourceType: ['album', 'camera'],
       success: (res) => {
-        const newItems = res.tempFilePaths.map((p) => ({ tempPath: p }));
+        const newItems = (res.tempFiles || []).map((f) => ({ tempPath: f.tempFilePath })).filter((it) => it.tempPath);
         this.setData({ images: this.data.images.concat(newItems) });
       }
     });
@@ -126,6 +136,11 @@ Page({
       wx.showToast({ title: '请填写故障描述', icon: 'none' });
       return;
     }
+    // 与服务端一致：故障描述至少 5 个字（前端先行校验，避免提交后才报错）
+    if (description.trim().length < 5) {
+      wx.showToast({ title: '故障描述至少 5 个字', icon: 'none' });
+      return;
+    }
 
     this.setData({ submitting: true, uploadProgress: 0 });
     wx.showLoading({ title: '正在提交...', mask: true });
@@ -139,10 +154,24 @@ Page({
       if (!orderId) {
         throw new Error('创建工单失败');
       }
-      // 先上传照片（成功后自动写入 order_images）
-      return this.uploadImages(orderId, images).then(() => orderId);
-    }).then(() => {
+      // 先上传照片（成功后自动写入 order_images），统计失败张数
+      return this.uploadImages(orderId, images).then((failedCount) => ({ orderId, failedCount }));
+    }).then(({ orderId, failedCount }) => {
       wx.hideLoading();
+      if (failedCount > 0) {
+        // 工单已创建成功，但部分照片丢失：明确告知用户，可稍后在详情页补充
+        wx.showModal({
+          title: '报修已提交',
+          content: failedCount + ' 张照片上传失败。工单已创建成功，您可稍后在工单详情中补充现场照片。',
+          showCancel: false,
+          confirmText: '知道了',
+          success: () => {
+            wx.setStorageSync('listStatus', 'pending_review');
+            wx.switchTab({ url: '/pages/report/list/list' });
+          }
+        });
+        return;
+      }
       wx.showToast({ title: '报修提交成功', icon: 'success' });
       setTimeout(() => {
         wx.setStorageSync('listStatus', 'pending_review');
@@ -155,20 +184,21 @@ Page({
     });
   },
 
-  // 上传全部照片（携带 order_id 与 image_type=report）
+  // 上传全部照片（携带 order_id 与 image_type=report），返回失败张数（不阻断工单提交流程）
   uploadImages(orderId, images) {
-    if (!images || !images.length) return Promise.resolve();
+    if (!images || !images.length) return Promise.resolve(0);
     let completed = 0;
+    let failedCount = 0;
     const tasks = images.map((item) =>
       api.upload(item.tempPath, { order_id: orderId, image_type: 'report' }, { silent: true, loading: false })
         .catch((err) => {
           console.error('[create] 照片上传失败:', err);
-          return null;
+          failedCount += 1;
         }).finally(() => {
           completed += 1;
           this.setData({ uploadProgress: Math.round(completed * 100 / images.length) });
         })
     );
-    return Promise.all(tasks);
+    return Promise.all(tasks).then(() => failedCount);
   }
 });

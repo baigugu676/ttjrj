@@ -3,5 +3,6 @@
   "usingComponents": {
     "order-card": "/components/order-card/order-card",
     "timeline": "/components/timeline/timeline"
-  }
+  },
+  "enablePullDownRefresh": true
 }

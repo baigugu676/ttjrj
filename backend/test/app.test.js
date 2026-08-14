@@ -1,5 +1,7 @@
 process.env.JWT_SECRET = 'test-only-secret';
 process.env.UPLOAD_DIR = 'test-uploads';
+// 单元测试环境无 MySQL：关闭认证中间件的账号状态数据库校验（该场景在联调环境验证）
+process.env.AUTH_STATUS_CHECK = '0';
 
 const test = require('node:test');
 const assert = require('node:assert/strict');

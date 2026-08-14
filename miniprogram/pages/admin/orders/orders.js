@@ -31,7 +31,8 @@ Page({
     page: 1,
     pageSize: 10,
     hasMore: true,
-    loading: false
+    loading: false,
+    exporting: false  // 是否导出中
   },
 
   onLoad(options) {
@@ -54,6 +55,44 @@ Page({
     if (getApp().getRole() === 'admin') {
       this.loadList(true);
     }
+  },
+
+  // 返回首页（本页由「工单」tab reLaunch 进入，tabBar 不可见，需提供出口）
+  goHome() {
+    wx.switchTab({ url: '/pages/index/index' });
+  },
+
+  // 导出当前筛选条件下的工单 CSV（云端生成后下载预览，可转发/另存）
+  onExport() {
+    if (this.data.exporting) return;
+    this.setData({ exporting: true });
+    api.callCloud('orders', {
+      action: 'exportCsv',
+      status: this.data.status,
+      keyword: this.data.keyword.trim(),
+      _token: wx.getStorageSync('token') || ''
+    }, { loading: true, loadingText: '正在生成...' }).then((res) => {
+      const fileID = res && res.fileID;
+      if (!fileID) throw new Error('导出失败：未返回文件');
+      return new Promise((resolve, reject) => {
+        wx.cloud.downloadFile({
+          fileID,
+          success: (d) => resolve(d.tempFilePath),
+          fail: (e) => reject(new Error((e && e.errMsg) || '下载失败'))
+        });
+      });
+    }).then((filePath) => {
+      wx.openDocument({
+        filePath,
+        fileType: 'csv',
+        showMenu: true, // 允许转发/保存
+        fail: () => wx.showToast({ title: '无法预览CSV，请转发到电脑查看', icon: 'none' })
+      });
+    }).catch((err) => {
+      wx.showToast({ title: (err && err.message) || '导出失败，请重试', icon: 'none' });
+    }).finally(() => {
+      this.setData({ exporting: false });
+    });
   },
 
   onKeywordInput(e) {
@@ -89,8 +128,10 @@ Page({
         hasMore: rows.length >= pageSize,
         loading: false
       });
-    }).catch(() => {
+    }).catch((err) => {
+      console.error('[admin/orders] 加载工单列表失败:', err);
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '工单列表加载失败', icon: 'none' });
     }).finally(() => {
       wx.stopPullDownRefresh();
     });

@@ -23,7 +23,9 @@ Page({
     locationAddress: '',  // 地址描述
     faultReason: '',      // 故障原因
     repairAction: '',     // 维修措施
-    submitting: false     // 是否提交中
+    submitting: false,    // 是否提交中
+    loadError: false,     // 工单加载失败
+    uploadProgress: ''    // 照片上传进度提示
   },
 
   onLoad(options) {
@@ -48,6 +50,7 @@ Page({
 
   // 加载工单信息
   loadOrder() {
+    this.setData({ loadError: false });
     api.get('/orders/' + this.data.id, {}, { loading: false }).then(async (order) => {
       const images = util.splitImages(order);
       this.setData({
@@ -64,7 +67,11 @@ Page({
       }
       // 进入页面自动尝试定位
       this.getLocation();
-    }).catch((err) => { console.error('[execute] 加载工单失败:', err); });
+    }).catch((err) => {
+      console.error('[execute] 加载工单失败:', err);
+      // 失败可重试，不永久停留在加载中
+      this.setData({ loadError: true });
+    });
   },
 
   // 自动接单（await 确保接单完成后再允许提交；失败则提示用户刷新重试）
@@ -88,12 +95,15 @@ Page({
       wx.showToast({ title: '最多9张', icon: 'none' });
       return;
     }
-    wx.chooseImage({
+    // wx.chooseMedia 替代已废弃的 wx.chooseImage
+    wx.chooseMedia({
       count,
+      mediaType: ['image'],
       sizeType: ['compressed'],
       sourceType: ['camera'], // 只能调用相机拍照
       success: (res) => {
-        this.setData({ [key]: list.concat(res.tempFilePaths) });
+        const paths = (res.tempFiles || []).map((f) => f.tempFilePath).filter(Boolean);
+        this.setData({ [key]: list.concat(paths) });
       }
     });
   },
@@ -141,8 +151,29 @@ Page({
           locationAddress: this.data.locationAddress || ''
         });
       },
-      fail: () => {
+      fail: (err) => {
         this.setData({ locating: false });
+        const msg = (err && err.errMsg) || '';
+        // 用户拒绝/未授权定位：引导去设置页开启，否则无法完成 OK 上线
+        if (msg.includes('auth deny') || msg.includes('auth denied') || msg.includes('authorize')) {
+          wx.showModal({
+            title: '需要定位权限',
+            content: '维修地点GPS坐标是完成工单的必填项，请在设置中开启定位权限。',
+            confirmText: '去设置',
+            success: (res) => {
+              if (res.confirm) {
+                wx.openSetting({
+                  success: (settingRes) => {
+                    if (settingRes.authSetting['scope.userLocation']) {
+                      this.getLocation();
+                    }
+                  }
+                });
+              }
+            }
+          });
+          return;
+        }
         wx.showToast({ title: '定位失败，请点击「GPS定位」重试', icon: 'none' });
       }
     });
@@ -163,59 +194,45 @@ Page({
 
   // ===== OK上线 =====
   onSubmit() {
-    console.log('[onSubmit] submitting=', this.data.submitting);
-    if (this.data.submitting) {
-      this.setData({ submitting: false });
-      wx.hideLoading();
-      return;
-    }
-    wx.hideLoading();
+    // 提交进行中禁止重复触发（只拦截，不复位——防止在途请求被二次触发）
+    if (this.data.submitting) return;
     const { beforeImages, afterImages, faultReason, repairAction, gpsLatitude, gpsLongitude } = this.data;
-    console.log('[onSubmit] beforeImages=', beforeImages.length, 'afterImages=', afterImages.length);
-    console.log('[onSubmit] faultReason="' + faultReason + '" repairAction="' + repairAction + '"');
-    console.log('[onSubmit] gpsLat=', gpsLatitude, 'gpsLng=', gpsLongitude);
     if (!beforeImages.length) {
-      console.log('[onSubmit] 验证失败：无维修前照片');
       wx.showToast({ title: '请先拍摄维修前照片（至少1张）', icon: 'none' });
       return;
     }
     if (!afterImages.length) {
-      console.log('[onSubmit] 验证失败：无维修后照片');
       wx.showToast({ title: '请拍摄维修后照片（至少1张）', icon: 'none' });
       return;
     }
     if (!faultReason.trim()) {
-      console.log('[onSubmit] 验证失败：故障原因为空');
       wx.showToast({ title: '请填写故障原因', icon: 'none' });
       return;
     }
     if (!repairAction.trim()) {
-      console.log('[onSubmit] 验证失败：维修措施为空');
       wx.showToast({ title: '请填写维修措施', icon: 'none' });
       return;
     }
     if (!gpsLatitude || !gpsLongitude) {
-      console.log('[onSubmit] 验证失败：GPS未获取');
       wx.showToast({ title: '请先获取维修地点GPS坐标', icon: 'none' });
       return;
     }
 
-    console.log('[onSubmit] 验证全部通过，延迟 200ms 后弹出确认弹窗...');
-    // 延迟弹窗：确保前序 wx.hideLoading() 等 UI 操作完全结束
+    // 延迟弹窗：确保前序 UI 操作完全结束
     setTimeout(() => {
+      // 弹窗前再次防重（延迟期间可能已触发提交）
+      if (this.data.submitting) return;
       wx.showModal({
         title: '确认OK上线',
         content: '确认设备已修复完成并上线？',
         confirmText: '确认OK上线',
         confirmColor: '#07C160',
         success: (res) => {
-          console.log('[onSubmit] 弹窗 confirm=', res.confirm);
           if (res.confirm) this.submit();
         },
-        fail: (err) => {
-          console.error('[onSubmit] 弹窗失败:', err);
-          // 兜底：弹窗失败直接提交
-          this.submit();
+        fail: () => {
+          // 弹窗失败（如快速双击导致弹窗冲突）不自动提交，让用户重新点击确认
+          wx.showToast({ title: '请再次点击「确认OK上线」', icon: 'none' });
         }
       });
     }, 200);
@@ -223,6 +240,8 @@ Page({
 
   // 提交维修记录
   async submit() {
+    // 双重防重：入口处拦截并发提交
+    if (this.data.submitting) return;
     if (!this.data.id) {
       wx.showToast({ title: '工单ID缺失，请重新进入', icon: 'none' });
       return;
@@ -230,9 +249,15 @@ Page({
     this.setData({ submitting: true });
     wx.showLoading({ title: '正在提交...', mask: true });
     try {
-      // 1. 上传维修前/后照片（照片通过 addImage 写入 order_images 集合）
-      await this.uploadImages(this.data.beforeImages, 'repair_before');
-      await this.uploadImages(this.data.afterImages, 'repair_after');
+      // 1. 上传维修前/后照片（照片通过 addImage 写入 order_images 集合，带进度提示）
+      const total = this.data.beforeImages.length + this.data.afterImages.length;
+      let uploaded = 0;
+      const tick = () => {
+        uploaded += 1;
+        this.setData({ uploadProgress: '正在上传照片 ' + uploaded + '/' + total });
+      };
+      await this.uploadImages(this.data.beforeImages, 'repair_before', tick);
+      await this.uploadImages(this.data.afterImages, 'repair_after', tick);
       // 2. 提交维修记录
       await api.put('/orders/' + this.data.id + '/repair', {
         start_time: this.data.repairDate + ' ' + this.data.repairTime,
@@ -255,16 +280,20 @@ Page({
       }, 1200);
     } catch (err) {
       wx.hideLoading();
-      this.setData({ submitting: false });
+      this.setData({ submitting: false, uploadProgress: '' });
       wx.showToast({ title: (err && (err.message || err.errMsg)) || '提交失败，请重试', icon: 'none' });
     }
   },
 
-  // 上传一组照片（保留原始错误信息，方便排查）
-  uploadImages(paths, imageType) {
+  // 上传一组照片（保留原始错误信息，方便排查；onProgress 每完成一张回调一次）
+  uploadImages(paths, imageType, onProgress) {
     if (!paths || !paths.length) return Promise.resolve([]);
     const tasks = paths.map((p) =>
       api.upload(p, { order_id: this.data.id, image_type: imageType }, { silent: true, loading: false })
+        .then((res) => {
+          if (typeof onProgress === 'function') onProgress();
+          return res;
+        })
         .catch((err) => {
           const rawMsg = (err && (err.message || err.errMsg)) || '上传失败';
           throw new Error('照片上传失败：' + rawMsg);

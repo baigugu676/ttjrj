@@ -27,7 +27,8 @@ function fail(message, code = 1) {
 
 function toSafeUser(user) {
   if (!user) return null;
-  const { password_hash, _id, ...rest } = user;
+  // 剔除密码哈希与 openid（微信身份标识不应下发到客户端）
+  const { password_hash, openid, _id, ...rest } = user;
   return { ...rest, id: _id };
 }
 
@@ -77,6 +78,16 @@ exports.main = async (event) => {
         } catch (err) {
           return fail('用户数据初始化失败，请先在云开发控制台创建 users 集合');
         }
+        // 并发首登可能产生重复的同 openid 记录：保留最早一条，清理其余
+        try {
+          const all = await db.collection('users').where({ openid: OPENID }).orderBy('created_at', 'asc').limit(10).get();
+          if (all.data.length > 1) {
+            for (let i = 1; i < all.data.length; i++) {
+              await db.collection('users').doc(all.data[i]._id).remove().catch(() => {});
+            }
+            user = all.data[0];
+          }
+        } catch (err) { /* 清理失败不影响登录 */ }
       }
       if (!user) {
         return fail('用户不存在，请先注册或联系管理员');
@@ -110,13 +121,17 @@ exports.main = async (event) => {
         return fail('账号已被禁用，请联系管理员');
       }
       if (OPENID && user.openid !== OPENID) {
-        try {
-          await db.collection('users').doc(user._id).update({
-            data: { openid: OPENID, updated_at: db.serverDate() }
-          });
-          user.openid = OPENID;
-        } catch (err) {
-          // 忽略绑定失败，仍允许登录
+        // 仅当该 OPENID 未绑定其他账号时才绑定，避免抢占他人账号的微信登录
+        const owner = await findUserByOpenid(OPENID);
+        if (!owner || String(owner._id) === String(user._id)) {
+          try {
+            await db.collection('users').doc(user._id).update({
+              data: { openid: OPENID, updated_at: db.serverDate() }
+            });
+            user.openid = OPENID;
+          } catch (err) {
+            // 忽略绑定失败，仍允许登录
+          }
         }
       }
       return ok({ token: user._id, userInfo: toSafeUser(user) });

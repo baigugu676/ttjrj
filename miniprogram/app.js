@@ -77,19 +77,31 @@ App({
     });
   },
 
-  // 微信一键登录：云开发环境下 OPENID 由云函数自动注入，无需 wx.login 换 code
-  wxLogin(profile) {
-    return api.post('/auth/login', {
-      nickname: (profile && profile.nickName) || '微信用户',
-      avatar: (profile && profile.avatarUrl) || ''
-    }, { loading: false }).then((data) => {
-      const token = data && (data.token || data.accessToken);
-      const userInfo = data && (data.userInfo || data.user);
-      if (!token || !userInfo) {
-        throw new Error('微信登录失败，请改用账号密码登录');
-      }
-      this.setLoginInfo(token, userInfo);
-      return userInfo;
+  // 请求订阅消息授权：登录后调用一次（每自然日内最多一次，避免频繁打扰）
+  // 模板未配置（subscribe-config.js 中留空）时自动跳过
+  requestSubscribe() {
+    const info = this.globalData.userInfo;
+    if (!info || !info.role) return;
+    const config = require('./utils/subscribe-config.js');
+    const templateId = (config.TEMPLATE_IDS || {})[info.role];
+    if (!templateId) return;
+    const lastKey = 'subscribe_requested_at';
+    const last = Number(wx.getStorageSync(lastKey)) || 0;
+    if (Date.now() - last < 24 * 3600 * 1000) return;
+    wx.requestSubscribeMessage({
+      tmplIds: [templateId],
+      success: (res) => {
+        wx.setStorageSync(lastKey, Date.now());
+        if (res[templateId] === 'accept') {
+          // 授权成功：向云端登记一条订阅额度（一次性订阅，发送后消耗）
+          api.callCloud('users', {
+            action: 'subscribeSelf',
+            template_ids: [templateId],
+            _token: this.globalData.token || ''
+          }, { loading: false, silent: true }).catch(() => {});
+        }
+      },
+      fail: () => {}
     });
   },
 

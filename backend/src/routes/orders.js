@@ -34,15 +34,15 @@ const { notifyOrderStatusChange } = require('../utils/notify');
 
 const router = express.Router();
 
-// 工单状态中文映射（用于提示信息）
+// 工单状态中文映射（用于提示信息，文案与小程序端 util.js 保持一致）
 const statusMap = {
   pending_review: '待审核',
-  pending_repair: '待接单',
+  pending_repair: '待维修',
   repairing: '维修中',
   pending_accept: '待验收',
   completed: '已完成',
   rejected: '已驳回',
-  repair_returned: '返修退回'
+  repair_returned: '退回维修'
 };
 
 // 工单状态合法值列表
@@ -102,8 +102,12 @@ router.post('/', [
       return res.json({ code: 1, message: '工单号生成失败，请重试' });
     }
 
-    // 工单提交 → 通知管理员审核
-    await notifyOrderStatusChange(insertedOrderId, 'submitted', orderNo, locRows[0].name);
+    // 工单提交 → 通知管理员审核（通知失败不影响工单创建）
+    try {
+      await notifyOrderStatusChange(insertedOrderId, 'submitted', orderNo, locRows[0].name);
+    } catch (notifyErr) {
+      console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+    }
 
     res.json({ code: 0, message: 'success', data: { id: insertedOrderId, order_no: orderNo } });
   } catch (err) {
@@ -201,6 +205,80 @@ router.get('/', async (req, res, next) => {
     );
 
     res.json({ code: 0, message: 'success', data: { list: rows, total, page, pageSize } });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * GET /api/orders/export — 导出工单 CSV（仅 admin）
+ * 复用列表筛选口径：?status= &keyword= &completed_today=1
+ * 返回 text/csv 附件（带 BOM，Excel 可直接打开中文）
+ */
+router.get('/export', requireRole('admin'), async (req, res, next) => {
+  try {
+    const where = [];
+    const params = [];
+    if (req.query.status) {
+      const statusList = Array.isArray(req.query.status)
+        ? req.query.status
+        : String(req.query.status).split(',').map((s) => s.trim()).filter(Boolean);
+      const validStatuses = statusList.filter((s) => VALID_STATUS.includes(s));
+      if (validStatuses.length === 1) {
+        where.push('wo.status = ?');
+        params.push(validStatuses[0]);
+      } else if (validStatuses.length > 1) {
+        where.push(`wo.status IN (${validStatuses.map(() => '?').join(', ')})`);
+        params.push(...validStatuses);
+      }
+    }
+    if (req.query.keyword) {
+      const kw = `%${String(req.query.keyword).trim()}%`;
+      where.push('(wo.order_no LIKE ? OR l.name LIKE ? OR wo.fault_description LIKE ?)');
+      params.push(kw, kw, kw);
+    }
+    if (req.query.completed_today === '1' || req.query.completed_today === 'true') {
+      where.push(`wo.status = 'completed' AND EXISTS (
+        SELECT 1 FROM acceptance_records ar
+        WHERE ar.order_id = wo.id AND ar.result = 'pass' AND DATE(ar.accepted_at) = CURDATE()
+      )`);
+    }
+    const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
+
+    const [rows] = await pool.query(
+      `SELECT wo.order_no, l.name AS location_name, l.area AS location_area,
+              l.device_type AS location_device_type, wo.fault_description,
+              ur.real_name AS reporter_name, uw.real_name AS repairer_name,
+              wo.status, wo.created_at, wo.updated_at
+       FROM work_orders wo
+       LEFT JOIN locations l  ON wo.location_id = l.id
+       LEFT JOIN users ur     ON wo.reporter_id = ur.id
+       LEFT JOIN users uw     ON wo.assigned_repairer_id = uw.id
+       ${whereSql}
+       ORDER BY wo.created_at DESC, wo.id DESC`,
+      params
+    );
+
+    const header = ['工单号', '点位名称', '区域', '设备类型', '故障描述', '报修人', '维修人员', '状态', '创建时间', '更新时间'];
+    const esc = (v) => {
+      const s = v === null || v === undefined ? '' : String(v);
+      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    };
+    const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '');
+    const lines = [header.map(esc).join(',')];
+    rows.forEach((o) => {
+      lines.push([
+        o.order_no, o.location_name, o.location_area, o.location_device_type,
+        o.fault_description, o.reporter_name, o.repairer_name,
+        statusMap[o.status] || o.status, fmtTime(o.created_at), fmtTime(o.updated_at)
+      ].map(esc).join(','));
+    });
+
+    const csv = '﻿' + lines.join('\r\n'); // BOM 便于 Excel 识别中文
+    const filename = `orders-${new Date().toISOString().slice(0, 10)}.csv`;
+    res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+    res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
+    res.send(csv);
   } catch (err) {
     next(err);
   }
@@ -342,26 +420,41 @@ router.put('/:id/review', requireRole('admin'), async (req, res, next) => {
       }
 
       // 审核通过：状态 → pending_repair，记录审核人并指派维修人员
-      await pool.query(
+      // 条件更新保证原子性：并发/重复审核时只有一次生效
+      const [updateRes] = await pool.query(
         `UPDATE work_orders
          SET status = 'pending_repair', assigned_repairer_id = ?, reviewer_id = ?, review_comment = ?, reviewed_at = NOW()
-         WHERE id = ?`,
+         WHERE id = ? AND status = 'pending_review'`,
         [assigned_repairer_id, req.user.id, review_comment, id]
       );
+      if (updateRes.affectedRows === 0) {
+        return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+      }
 
-      // 审核通过 → 通知报修用户 + 维修人员
-      await notifyOrderStatusChange(id, 'approved', order.order_no, order.location_name);
+      // 审核通过 → 通知报修用户 + 维修人员（通知失败不影响业务）
+      try {
+        await notifyOrderStatusChange(id, 'approved', order.order_no, order.location_name);
+      } catch (notifyErr) {
+        console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+      }
     } else {
       // 审核驳回：状态 → rejected
-      await pool.query(
+      const [updateRes] = await pool.query(
         `UPDATE work_orders
          SET status = 'rejected', reviewer_id = ?, review_comment = ?, reject_reason = ?, reviewed_at = NOW()
-         WHERE id = ?`,
+         WHERE id = ? AND status = 'pending_review'`,
         [req.user.id, review_comment, reject_reason, id]
       );
+      if (updateRes.affectedRows === 0) {
+        return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+      }
 
-      // 审核驳回 → 通知报修用户
-      await notifyOrderStatusChange(id, 'rejected', order.order_no, order.location_name, reject_reason);
+      // 审核驳回 → 通知报修用户（通知失败不影响业务）
+      try {
+        await notifyOrderStatusChange(id, 'rejected', order.order_no, order.location_name, reject_reason);
+      } catch (notifyErr) {
+        console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+      }
     }
 
     res.json({ code: 0, message: 'success', data: null });
@@ -400,13 +493,24 @@ router.put('/:id/accept-repair', requireRole('repairer'), async (req, res, next)
     }
     // 状态流转校验：仅待接单状态可接单
     if (order.status !== 'pending_repair') {
-      return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，仅待接单工单可以接单` });
+      return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，仅待维修工单可以接单` });
     }
 
-    await pool.query(`UPDATE work_orders SET status = 'repairing' WHERE id = ?`, [id]);
+    // 条件更新：防双击/并发重复接单
+    const [updateRes] = await pool.query(
+      `UPDATE work_orders SET status = 'repairing' WHERE id = ? AND status = 'pending_repair' AND assigned_repairer_id = ?`,
+      [id, req.user.id]
+    );
+    if (updateRes.affectedRows === 0) {
+      return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+    }
 
-    // 维修人员接单 → 通知报修用户
-    await notifyOrderStatusChange(id, 'accepted_repair', order.order_no, order.location_name);
+    // 维修人员接单 → 通知报修用户（通知失败不影响业务）
+    try {
+      await notifyOrderStatusChange(id, 'accepted_repair', order.order_no, order.location_name);
+    } catch (notifyErr) {
+      console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+    }
 
     res.json({ code: 0, message: 'success', data: null });
   } catch (err) {
@@ -484,12 +588,19 @@ router.put('/:id/repair', requireRole('repairer'), async (req, res, next) => {
     // 返修退回的工单重新提交后进入待验收流程
     const nextStatus = 'pending_accept';
 
-    // 事务：更新工单状态 + 写入维修记录
+    // 事务：条件更新工单状态（原子防重）+ 写入维修记录
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
-      await conn.query(`UPDATE work_orders SET status = ? WHERE id = ?`, [nextStatus, id]);
+      const [updateRes] = await conn.query(
+        `UPDATE work_orders SET status = ? WHERE id = ? AND status IN ('repairing', 'repair_returned')`,
+        [nextStatus, id]
+      );
+      if (updateRes.affectedRows === 0) {
+        await conn.rollback();
+        return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+      }
       await conn.query(
         `INSERT INTO repair_records (order_id, repairer_id, start_time, end_time, gps_latitude, gps_longitude, location_address, fault_reason, repair_action)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
@@ -504,9 +615,13 @@ router.put('/:id/repair', requireRole('repairer'), async (req, res, next) => {
       conn.release();
     }
 
-    // 维修完成 → 通知管理员（返修重新提交时附加说明）
-    const extra = order.status === 'repair_returned' ? '返修完成并重新提交' : '';
-    await notifyOrderStatusChange(id, 'repair_done', order.order_no, order.location_name, extra);
+    // 维修完成 → 通知管理员（返修重新提交时附加说明；通知失败不影响业务）
+    try {
+      const extra = order.status === 'repair_returned' ? '返修完成并重新提交' : '';
+      await notifyOrderStatusChange(id, 'repair_done', order.order_no, order.location_name, extra);
+    } catch (notifyErr) {
+      console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+    }
 
     res.json({ code: 0, message: 'success', data: null });
   } catch (err) {
@@ -554,15 +669,18 @@ router.put('/:id/accept', requireRole('admin'), async (req, res, next) => {
       return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，仅待验收工单可以验收` });
     }
 
-    // 事务：更新工单状态 + 写入验收记录
+    // 事务：条件更新工单状态（原子防重）+ 写入验收记录
     const conn = await pool.getConnection();
     try {
       await conn.beginTransaction();
 
-      if (action === 'pass') {
-        await conn.query(`UPDATE work_orders SET status = 'completed' WHERE id = ?`, [id]);
-      } else {
-        await conn.query(`UPDATE work_orders SET status = 'repair_returned' WHERE id = ?`, [id]);
+      const [updateRes] = await conn.query(
+        `UPDATE work_orders SET status = ? WHERE id = ? AND status = 'pending_accept'`,
+        [action === 'pass' ? 'completed' : 'repair_returned', id]
+      );
+      if (updateRes.affectedRows === 0) {
+        await conn.rollback();
+        return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
       }
       await conn.query(
         `INSERT INTO acceptance_records (order_id, reviewer_id, result, return_reason)
@@ -578,9 +696,13 @@ router.put('/:id/accept', requireRole('admin'), async (req, res, next) => {
       conn.release();
     }
 
-    // 发送通知：验收通过 → 通知维修人员；验收退回 → 通知维修人员返修
-    const notifyAction = action === 'pass' ? 'accepted' : 'returned';
-    await notifyOrderStatusChange(id, notifyAction, order.order_no, order.location_name, return_reason);
+    // 发送通知：验收通过 → 通知维修人员；验收退回 → 通知维修人员返修（通知失败不影响业务）
+    try {
+      const notifyAction = action === 'pass' ? 'accepted' : 'returned';
+      await notifyOrderStatusChange(id, notifyAction, order.order_no, order.location_name, return_reason);
+    } catch (notifyErr) {
+      console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+    }
 
     res.json({ code: 0, message: 'success', data: null });
   } catch (err) {

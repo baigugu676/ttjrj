@@ -91,6 +91,7 @@ Page({
     }).catch((err) => {
       console.error('[users] 加载用户列表失败:', err);
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '用户列表加载失败', icon: 'none' });
     }).finally(() => {
       wx.stopPullDownRefresh();
     });
@@ -218,7 +219,10 @@ Page({
         }).then(() => {
           wx.showToast({ title: '操作成功', icon: 'success' });
           this.loadList(true);
-        }).catch((err) => { console.error('[users] 状态切换失败:', err); });
+        }).catch((err) => {
+          console.error('[users] 状态切换失败:', err);
+          wx.showToast({ title: (err && err.message) || '操作失败，请重试', icon: 'none' });
+        });
       }
     });
   }

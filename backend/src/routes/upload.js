@@ -2,6 +2,11 @@
  * 图片上传路由（需登录）
  * POST /api/upload — 单文件上传到 uploads/ 目录
  * 若 body 中携带 order_id 与 image_type，自动写入 order_images 表
+ *
+ * 安全约束：
+ *   - 校验文件魔数（内容确为图片），客户端 MIME/扩展名不可信
+ *   - 按角色与工单归属校验：user 仅能给自己的工单传报修图；
+ *     repairer 仅能给指派给自己的工单传维修前后图；admin 不受限
  */
 const express = require('express');
 const path = require('path');
@@ -57,6 +62,33 @@ const upload = multer({
   limits: { fileSize: 10 * 1024 * 1024 }
 });
 
+// 校验文件内容魔数，确认确为图片（防止伪造扩展名上传任意文件）
+async function hasImageMagic(filePath) {
+  try {
+    const fd = await fs.promises.open(filePath, 'r');
+    try {
+      const buf = Buffer.alloc(16);
+      await fd.read(buf, 0, 16, 0);
+      // JPEG: FF D8 FF
+      if (buf[0] === 0xFF && buf[1] === 0xD8 && buf[2] === 0xFF) return true;
+      // PNG: 89 50 4E 47
+      if (buf[0] === 0x89 && buf[1] === 0x50 && buf[2] === 0x4E && buf[3] === 0x47) return true;
+      // GIF: GIF87a / GIF89a
+      const head6 = buf.slice(0, 6).toString('ascii');
+      if (head6 === 'GIF87a' || head6 === 'GIF89a') return true;
+      // BMP: BM
+      if (buf[0] === 0x42 && buf[1] === 0x4D) return true;
+      // WebP: RIFF....WEBP
+      if (buf.slice(0, 4).toString('ascii') === 'RIFF' && buf.slice(8, 12).toString('ascii') === 'WEBP') return true;
+      return false;
+    } finally {
+      await fd.close();
+    }
+  } catch (err) {
+    return false;
+  }
+}
+
 /**
  * POST /api/upload — 上传单张图片（需登录）
  * multipart/form-data：file 字段必填
@@ -66,6 +98,13 @@ router.post('/', auth, upload.single('file'), async (req, res, next) => {
   try {
     if (!req.file) {
       return res.json({ code: 1, message: '请选择要上传的图片' });
+    }
+
+    // 魔数校验：文件内容必须是真实图片
+    const magicOk = await hasImageMagic(req.file.path);
+    if (!magicOk) {
+      fs.unlink(req.file.path, () => {});
+      return res.json({ code: 1, message: '文件内容不是有效的图片，已拒绝' });
     }
 
     // 生成的图片访问地址（通过静态目录 /uploads 访问）
@@ -83,23 +122,58 @@ router.post('/', auth, upload.single('file'), async (req, res, next) => {
       }
 
       // 校验工单是否存在
-      const [orders] = await pool.query(`SELECT id FROM work_orders WHERE id = ?`, [orderId]);
+      const [orders] = await pool.query(
+        `SELECT id, reporter_id, assigned_repairer_id, status FROM work_orders WHERE id = ?`,
+        [orderId]
+      );
       if (orders.length === 0) {
         fs.unlink(req.file.path, () => {});
         return res.json({ code: 1, message: '工单不存在' });
       }
+      const order = orders[0];
 
       // 校验图片类型，非法时默认 report
       const validTypes = ['report', 'repair_before', 'repair_after'];
       const type = validTypes.includes(image_type) ? image_type : 'report';
 
-      // 写入 order_images 表
-      const [result] = await pool.query(
-        `INSERT INTO order_images (order_id, image_url, image_type, uploader_id)
-         VALUES (?, ?, ?, ?)`,
-        [orderId, imageUrl, type, req.user.id]
-      );
-      orderImageId = result.insertId;
+      // 归属与角色校验（与云函数 addImage 一致）
+      if (req.user.role === 'user') {
+        if (order.reporter_id !== req.user.id) {
+          fs.unlink(req.file.path, () => {});
+          return res.json({ code: 1, message: '无权操作该工单' });
+        }
+        if (type !== 'report') {
+          fs.unlink(req.file.path, () => {});
+          return res.json({ code: 1, message: '报修用户仅可上传报修照片' });
+        }
+      } else if (req.user.role === 'repairer') {
+        if (order.assigned_repairer_id !== req.user.id) {
+          fs.unlink(req.file.path, () => {});
+          return res.json({ code: 1, message: '无权操作该工单' });
+        }
+        if (type === 'report') {
+          fs.unlink(req.file.path, () => {});
+          return res.json({ code: 1, message: '维修人员仅可上传维修前后照片' });
+        }
+        if (['completed', 'rejected'].includes(order.status)) {
+          fs.unlink(req.file.path, () => {});
+          return res.json({ code: 1, message: '工单已结束，无法上传维修照片' });
+        }
+      }
+      // admin 不受限（可补充证据照片）
+
+      // 写入 order_images 表；DB 写入失败时删除孤儿文件
+      try {
+        const [result] = await pool.query(
+          `INSERT INTO order_images (order_id, image_url, image_type, uploader_id)
+           VALUES (?, ?, ?, ?)`,
+          [orderId, imageUrl, type, req.user.id]
+        );
+        orderImageId = result.insertId;
+      } catch (dbErr) {
+        fs.unlink(req.file.path, () => {});
+        throw dbErr;
+      }
     }
 
     res.json({

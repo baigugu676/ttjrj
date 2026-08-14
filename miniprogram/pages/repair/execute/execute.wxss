@@ -103,3 +103,11 @@
 .ok-area {
   padding: 40rpx 48rpx 60rpx;
 }
+
+/* 照片上传进度提示 */
+.upload-progress {
+  text-align: center;
+  font-size: 26rpx;
+  color: #07C160;
+  margin-bottom: 16rpx;
+}

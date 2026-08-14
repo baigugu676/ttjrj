@@ -109,3 +109,25 @@
   color: #999999;
   padding: 20rpx 0;
 }
+
+/* 首页返回条（本页无 tabBar，提供导航出口与导出入口） */
+.home-bar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 16rpx 24rpx 0;
+}
+.home-btn {
+  font-size: 26rpx;
+  color: #1677FF;
+  padding: 8rpx 20rpx;
+  background: #E8F2FF;
+  border-radius: 24rpx;
+}
+.export-btn {
+  font-size: 26rpx;
+  color: #07C160;
+  padding: 8rpx 20rpx;
+  background: #E8F9EF;
+  border-radius: 24rpx;
+}

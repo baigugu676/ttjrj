@@ -37,32 +37,14 @@ Page({
     }
     this.setData({ logging: true });
     app.login(username.trim(), password).then(() => {
+      // 登录成功后请求订阅消息授权（用于接收工单状态微信推送）
+      app.requestSubscribe();
       wx.showToast({ title: '登录成功', icon: 'success' });
       setTimeout(() => {
         wx.switchTab({ url: '/pages/index/index' });
       }, 800);
     }).catch((err) => {
       wx.showToast({ title: (err && err.message) || '登录失败', icon: 'none' });
-      this.setData({ logging: false });
-    });
-  },
-
-  // 微信一键登录：open-type="getUserInfo" 获取微信头像昵称
-  onWxLogin(e) {
-    if (this.data.logging) return;
-    const profile = e.detail && e.detail.userInfo;
-    if (!profile) {
-      wx.showToast({ title: '请允许授权后再登录', icon: 'none' });
-      return;
-    }
-    this.setData({ logging: true });
-    app.wxLogin(profile).then(() => {
-      wx.showToast({ title: '登录成功', icon: 'success' });
-      setTimeout(() => {
-        wx.switchTab({ url: '/pages/index/index' });
-      }, 800);
-    }).catch((err) => {
-      wx.showToast({ title: (err && err.message) || '微信登录失败', icon: 'none' });
       this.setData({ logging: false });
     });
   }

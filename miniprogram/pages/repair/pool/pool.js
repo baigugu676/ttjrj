@@ -20,7 +20,7 @@ Page({
       setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
       return;
     }
-    this.loadList(true);
+    // 首次加载交给 onShow（onLoad 后必触发），避免首屏重复请求
   },
 
   onShow() {
@@ -57,6 +57,7 @@ Page({
     }).catch((err) => {
       console.error('[pool] 加载工单池失败:', err);
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '工单池加载失败', icon: 'none' });
     }).finally(() => {
       wx.stopPullDownRefresh();
     });
@@ -95,6 +96,8 @@ Page({
       wx.navigateTo({ url: '/pages/repair/execute/execute?id=' + id });
       return;
     }
+    // 防重复接单：请求进行中忽略再次点击
+    if (this._accepting) return;
     wx.showModal({
       title: '确认接单',
       content: '确认接取该维修工单？',
@@ -102,12 +105,15 @@ Page({
       confirmColor: '#07C160',
       success: (res) => {
         if (!res.confirm) return;
+        this._accepting = true;
         api.put('/orders/' + id + '/accept-repair', {}).then(() => {
           wx.showToast({ title: '接单成功', icon: 'success' });
           this.loadList(true);
         }).catch((err) => {
           // 显示具体的失败原因，帮助维修员排查
           wx.showToast({ title: (err && err.message) || '接单失败，请重试', icon: 'none', duration: 2500 });
+        }).finally(() => {
+          this._accepting = false;
         });
       }
     });

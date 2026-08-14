@@ -10,8 +10,19 @@ Page({
   onLoad(options) {
     const status = options && options.status ? options.status : '';
     this._cache = new Map();
+    this._initialLoad = true;
     this.setData({ status });
     this.load({ status }, true);
+  },
+  onShow() {
+    // 从详情返回时静默刷新（首次进入跳过，避免与 onLoad 重复请求）
+    if (this._initialLoad) {
+      this._initialLoad = false;
+      return;
+    }
+    if (getApp().globalData.token) {
+      this.load({}, true);
+    }
   },
   onUnload() { if (this._searchTimer) clearTimeout(this._searchTimer); },
   onPullDownRefresh() { this.load({}, true).finally(() => wx.stopPullDownRefresh()); },

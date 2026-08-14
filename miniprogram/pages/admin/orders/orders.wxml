@@ -1,5 +1,11 @@
 <!-- 工单管理（管理员）：状态筛选 + 搜索 + 工单列表（按状态显示审核/验收/查看按钮） -->
 <view class="page">
+  <!-- 本页由「工单」tab 进入（tabBar 不可见），提供首页入口与导出 -->
+  <view class="home-bar">
+    <view class="export-btn" bindtap="onExport">{{exporting ? '导出中...' : '⬇ 导出CSV'}}</view>
+    <view class="home-btn" bindtap="goHome">🏠 返回首页</view>
+  </view>
+
   <!-- 搜索框 -->
   <view class="search-bar">
     <input class="search-input" placeholder="按工单号或点位搜索" value="{{keyword}}"

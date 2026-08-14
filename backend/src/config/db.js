@@ -19,7 +19,16 @@ const pool = mysql.createPool({
   connectionLimit: 10,        // 最大连接数
   queueLimit: 0,              // 排队不设上限
   charset: 'utf8mb4',         // 支持中文
-  timezone: '+08:00'          // 中国时区
+  timezone: '+08:00'          // 驱动层日期↔字符串互转使用中国时区
+});
+
+// 设置 MySQL 会话时区为 +08:00：
+// mysql2 的 timezone 配置只影响驱动层，CURDATE()/NOW() 等服务器端函数仍按会话时区计算，
+// 必须显式 SET time_zone，否则「今日/本月」统计边界会跟随服务器时区错位。
+pool.on('connection', (conn) => {
+  conn.query("SET time_zone = '+08:00'", (err) => {
+    if (err) console.warn('[db] 设置会话时区失败:', err.message);
+  });
 });
 
 // 简单导出连接池

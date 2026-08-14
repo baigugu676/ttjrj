@@ -1,1 +1,4 @@
-{"navigationBarTitleText":"监控详情"}
+{
+  "navigationBarTitleText": "监控详情",
+  "enablePullDownRefresh": true
+}

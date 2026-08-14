@@ -23,26 +23,43 @@ function fail(message, code = 1) {
   return { code, message };
 }
 
+// 账号被禁用的哨兵值：与「未登录」区分，返回更明确的中文提示
+const DISABLED_USER = { __disabled: true };
+
+/**
+ * 获取当前登录用户。
+ * 安全约束：微信 OPENID 是唯一可信身份。_token（裸用户 _id）仅作账号提示，
+ * 必须与当前微信 OPENID 绑定的用户一致才生效，否则回落 OPENID 查询——防止
+ * 客户端伪造他人 _id 提权。
+ */
 async function getCurrentUser(event) {
+  const { OPENID } = cloud.getWXContext();
+  if (!OPENID) return null;
   const token = event && event._token ? String(event._token) : '';
   if (token) {
     try {
       const byToken = await db.collection('users').doc(token).get();
-      if (byToken.data) return byToken.data;
+      if (byToken.data) {
+        const u = byToken.data;
+        if (u.openid === OPENID) {
+          return u.status === 'disabled' ? DISABLED_USER : u;
+        }
+      }
     } catch (e) {
       // ignore token miss and fallback to OPENID
     }
   }
-  const { OPENID } = cloud.getWXContext();
-  if (!OPENID) return null;
   const res = await db.collection('users').where({ openid: OPENID }).limit(1).get();
-  return res.data[0] || null;
+  const u = res.data[0] || null;
+  if (!u) return null;
+  return u.status === 'disabled' ? DISABLED_USER : u;
 }
 
 exports.main = async (event) => {
   try {
     const user = await getCurrentUser(event);
     if (!user) return fail('未登录或 token 缺失');
+    if (user === DISABLED_USER) return fail('账号已被禁用，请联系管理员');
 
     const { action } = event || {};
 
@@ -77,6 +94,7 @@ exports.main = async (event) => {
     }
 
     if (action === 'read') {
+      if (!event.id) return fail('通知ID不合法');
       const res = await db.collection('notifications')
         .where({ _id: event.id, user_id: user._id })
         .update({ data: { is_read: true } });

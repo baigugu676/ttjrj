@@ -126,8 +126,14 @@
 
   <!-- OK上线大按钮 -->
   <view class="ok-area">
+    <view class="upload-progress" wx:if="{{uploadProgress}}">{{uploadProgress}}</view>
     <button class="btn btn-ok" bindtap="onSubmit" loading="{{submitting}}">✅ 确认OK上线</button>
   </view>
+</view>
+
+<view class="empty" wx:elif="{{loadError}}">
+  <text>工单加载失败，请检查网络</text>
+  <button class="btn btn-default" bindtap="loadOrder">重新加载</button>
 </view>
 
 <view class="empty" wx:else>加载中...</view>

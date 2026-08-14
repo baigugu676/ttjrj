@@ -33,14 +33,25 @@ Page({
       this.setData({ tab: presetTab });
       wx.removeStorageSync('mytasksTab');
     }
+    this._initialLoad = true;
     this.loadList(true);
   },
 
   onShow() {
-    // 从维修执行页返回时刷新
-    if (this.data.list.length && getApp().getRole() === 'repairer') {
+    // 从维修执行页返回时刷新（空列表也刷新，避免状态已变化的工单停留旧数据）；
+    // 首次进入跳过（onLoad 已触发），避免首屏重复请求
+    if (this._initialLoad) {
+      this._initialLoad = false;
+      return;
+    }
+    if (getApp().getRole() === 'repairer') {
       this.loadList(true);
     }
+  },
+
+  // 返回首页（本页由「工单」tab reLaunch 进入，tabBar 不可见，需提供出口）
+  goHome() {
+    wx.switchTab({ url: '/pages/index/index' });
   },
 
   onTabChange(e) {
@@ -77,6 +88,7 @@ Page({
     }).catch((err) => {
       console.error('[mytasks] 加载任务列表失败:', err);
       this.setData({ loading: false });
+      wx.showToast({ title: (err && err.message) || '任务列表加载失败', icon: 'none' });
     }).finally(() => {
       wx.stopPullDownRefresh();
     });
@@ -100,6 +112,12 @@ Page({
 
   onReachBottom() {
     this.loadList(false);
+  },
+
+  // 点击工单卡片查看详情（order-card 的 tap 事件）
+  goDetail(e) {
+    const id = e.detail && e.detail.id;
+    if (id) wx.navigateTo({ url: '/pages/report/detail/detail?id=' + id });
   },
 
   // 查看工单详情（通过 data-id 传参）
