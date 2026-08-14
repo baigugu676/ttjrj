@@ -1,20 +1,24 @@
 /**
  * 微信订阅消息发送（REST 版，服务端直连微信 API）
  *
- * 需要 .env 配置：WX_APPID、WX_SECRET；模板 ID 按角色配置：
+ * 需要 .env 配置：WX_APPID、WX_SECRET；模板按角色配置（下方 TEMPLATES）：
  *   WX_TEMPLATE_USER / WX_TEMPLATE_REPAIRER / WX_TEMPLATE_ADMIN
  * 未配置时静默跳过（不影响业务）。
  *
  * 一次性订阅额度存 subscribe_records 表（前端授权成功后登记），发送成功后消耗一条。
- * ⚠ 接入真实模板时：send 的 data 字段名（thing1/thing2）需按所申请模板的
- * 实际字段（thing{n}/phrase{n}/time{n} 等）调整。
+ * 模板字段关键词（titleField/contentField）按公众平台模板详情中的关键词填写。
  */
 const pool = require('../config/db');
 
-const TEMPLATE_IDS = {
-  user: process.env.WX_TEMPLATE_USER || '',
-  repairer: process.env.WX_TEMPLATE_REPAIRER || '',
-  admin: process.env.WX_TEMPLATE_ADMIN || ''
+// ═══════════════ 微信订阅消息模板配置（REST 版，只需改这里） ═══════════════
+// templateId 从 .env 读取（WX_TEMPLATE_USER / WX_TEMPLATE_REPAIRER / WX_TEMPLATE_ADMIN），
+// 留空则该角色的推送自动跳过。
+// titleField / contentField 填该模板中用于展示「标题/详情」的字段关键词
+// （公众平台 → 订阅消息 → 我的模板 → 详情 中查看，如 thing1/thing2/phrase3）。
+const TEMPLATES = {
+  user:     { templateId: process.env.WX_TEMPLATE_USER || '', titleField: 'thing1', contentField: 'thing2' },
+  repairer: { templateId: process.env.WX_TEMPLATE_REPAIRER || '', titleField: 'thing1', contentField: 'thing2' },
+  admin:    { templateId: process.env.WX_TEMPLATE_ADMIN || '', titleField: 'thing1', contentField: 'thing2' }
 };
 
 // access_token 缓存（提前 5 分钟过期，避免并发互刷）
@@ -55,15 +59,20 @@ async function sendSubscribeMessage(userId, title, content, pagePath) {
       [userId]
     );
     if (users.length === 0 || !users[0].openid || users[0].status !== 'active') return;
-    const templateId = TEMPLATE_IDS[users[0].role];
-    if (!templateId) return; // 该角色模板未配置
+    const tpl = TEMPLATES[users[0].role];
+    if (!tpl || !tpl.templateId) return; // 该角色模板未配置
 
     // 一次性订阅额度
     const [quota] = await pool.query(
       `SELECT id FROM subscribe_records WHERE user_id = ? AND template_id = ? ORDER BY id ASC LIMIT 1`,
-      [userId, templateId]
+      [userId, tpl.templateId]
     );
     if (quota.length === 0) return;
+
+    // 按模板配置的字段关键词组装 data（thing 类字段上限 20 字）
+    const msgData = {};
+    msgData[tpl.titleField] = { value: String(title || '工单提醒').slice(0, 20) };
+    msgData[tpl.contentField] = { value: String(content || '').slice(0, 20) };
 
     const res = await fetch(
       `https://api.weixin.qq.com/cgi-bin/message/subscribe/send?access_token=${token}`,
@@ -72,12 +81,9 @@ async function sendSubscribeMessage(userId, title, content, pagePath) {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({
           touser: users[0].openid,
-          template_id: templateId,
+          template_id: tpl.templateId,
           page: pagePath || 'pages/index/index',
-          data: {
-            thing1: { value: String(title || '工单提醒').slice(0, 20) },
-            thing2: { value: String(content || '').slice(0, 20) }
-          }
+          data: msgData
         })
       }
     );
