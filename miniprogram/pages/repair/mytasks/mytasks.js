@@ -1,6 +1,5 @@
 // 我的维修任务（维修人员）：维修中 / 待验收 / 已完成 / 今日完成 / 退回返修，点击"进入维修"跳转维修执行页
 const api = require('../../../utils/api.js');
-const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -63,19 +62,11 @@ Page({
     api.get('/orders', {
       assigned_repairer_id: this.getMyId(),
       status: apiStatus,
+      completed_today: this.data.tab === 'today_completed' ? 1 : 0,
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      let rows = this.extractList(res);
-
-      // 今日完成：客户端按 updated_at 过滤当天
-      if (this.data.tab === 'today_completed') {
-        const today = util.formatTime(new Date(), 'YYYY-MM-DD');
-        rows = rows.filter((o) => {
-          const t = util.formatTime(o.updated_at || o.created_at, 'YYYY-MM-DD');
-          return t === today;
-        });
-      }
+      const rows = this.extractList(res);
 
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),

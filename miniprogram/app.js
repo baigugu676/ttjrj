@@ -11,6 +11,7 @@ App({
     // 启动时从本地缓存恢复登录态
     this.globalData.token = wx.getStorageSync('token') || '';
     this.globalData.userInfo = wx.getStorageSync('userInfo') || null;
+    if (this.globalData.token) this.refreshUnreadBadge();
   },
 
   // 保存登录信息（同时写入 globalData 与 Storage）
@@ -19,6 +20,25 @@ App({
     this.globalData.userInfo = userInfo;
     wx.setStorageSync('token', token);
     wx.setStorageSync('userInfo', userInfo);
+    this.refreshUnreadBadge();
+  },
+
+  refreshUnreadBadge() {
+    if (!this.globalData.token) {
+      wx.removeTabBarBadge({ index: 2 });
+      return Promise.resolve(0);
+    }
+    return api.get('/notifications/unread-count', {}, { loading: false, silent: true })
+      .then((data) => {
+        const count = Number(data && data.unread_count) || 0;
+        if (count > 0) {
+          wx.setTabBarBadge({ index: 2, text: count > 99 ? '99+' : String(count) });
+        } else {
+          wx.removeTabBarBadge({ index: 2 });
+        }
+        return count;
+      })
+      .catch(() => 0);
   },
 
   // 检查登录状态：无 token 或已过期则自动跳转登录页
@@ -79,6 +99,7 @@ App({
     this.globalData.userInfo = null;
     wx.removeStorageSync('token');
     wx.removeStorageSync('userInfo');
+    wx.removeTabBarBadge({ index: 2 });
     wx.reLaunch({ url: '/pages/login/login' });
   }
 });

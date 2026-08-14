@@ -157,6 +157,12 @@ router.get('/', async (req, res, next) => {
       where.push('(wo.order_no LIKE ? OR l.name LIKE ? OR wo.fault_description LIKE ?)');
       params.push(kw, kw, kw);
     }
+    if (req.query.completed_today === '1' || req.query.completed_today === 'true') {
+      where.push(`wo.status = 'completed' AND EXISTS (
+        SELECT 1 FROM acceptance_records ar
+        WHERE ar.order_id = wo.id AND ar.result = 'pass' AND DATE(ar.accepted_at) = CURDATE()
+      )`);
+    }
 
     // 角色数据权限限制
     if (req.user.role === 'user') {

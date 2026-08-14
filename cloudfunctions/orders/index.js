@@ -411,6 +411,20 @@ exports.main = async (event) => {
       if (user.role === 'user') conds.push({ reporter_id: user._id });
       if (user.role === 'repairer') conds.push({ assigned_repairer_id: user._id });
 
+      if (event.completed_today) {
+        const acceptedToday = await db.collection('acceptance_records')
+          .where({ result: 'pass', accepted_at: _.gte(todayStart()) })
+          .field({ order_id: true })
+          .limit(1000)
+          .get();
+        const orderIds = [...new Set(acceptedToday.data.map((record) => record.order_id).filter(Boolean))];
+        if (!orderIds.length) {
+          return ok({ list: [], total: 0, page, pageSize });
+        }
+        conds.push({ status: 'completed' });
+        conds.push({ _id: _.in(orderIds) });
+      }
+
       // 关键字搜索：工单号 / 点位名称 / 故障描述
       const kw = event.keyword ? String(event.keyword).trim() : '';
       if (kw) {
@@ -652,7 +666,11 @@ exports.main = async (event) => {
 
       const newStatus = act === 'pass' ? 'completed' : 'repair_returned';
       await db.collection('work_orders').doc(order._id).update({
-        data: { status: newStatus, updated_at: db.serverDate() }
+        data: {
+          status: newStatus,
+          updated_at: db.serverDate(),
+          completed_at: act === 'pass' ? db.serverDate() : null
+        }
       });
       await db.collection('acceptance_records').add({
         data: {

@@ -1,6 +1,5 @@
 // 我的（个人中心）：按角色显示功能菜单，退出登录
 const util = require('../../../utils/util.js');
-const api = require('../../../utils/api.js');
 
 Page({
   data: {
@@ -30,8 +29,7 @@ Page({
 
   // 查询未读通知数
   loadUnreadCount() {
-    api.get('/notifications/unread-count', {}, { loading: false, silent: true }).then((res) => {
-      const count = (res && res.unread_count) || 0;
+    getApp().refreshUnreadBadge().then((count) => {
       this.setData({ unreadCount: count });
     }).catch(() => {});
   },

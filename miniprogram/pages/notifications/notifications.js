@@ -76,6 +76,7 @@ Page({
       const list = this.data.list.slice();
       if (list[index]) list[index].is_read = true;
       this.setData({ list });
+      getApp().refreshUnreadBadge();
     }).catch(() => {});
   },
 
@@ -95,6 +96,7 @@ Page({
         api.put('/notifications/read-all', {}, { loading: true, loadingText: '处理中...' }).then(() => {
           const list = this.data.list.map((n) => ({ ...n, is_read: true }));
           this.setData({ list });
+          getApp().refreshUnreadBadge();
           wx.showToast({ title: '已全部标记为已读', icon: 'success' });
         }).catch(() => {});
       }
@@ -110,6 +112,7 @@ Page({
       const list = this.data.list.slice();
       if (list[index]) list[index].is_read = true;
       this.setData({ list });
+      getApp().refreshUnreadBadge();
     }
     // 跳转工单详情
     if (orderId) {
