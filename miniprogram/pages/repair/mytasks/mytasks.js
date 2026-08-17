@@ -1,5 +1,6 @@
 // 我的维修任务（维修人员）：维修中 / 待验收 / 已完成 / 今日完成 / 退回返修，点击"进入维修"跳转维修执行页
 const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -22,11 +23,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅维修人员可访问
-    if (app.getRole() !== 'repairer') {
-      wx.showToast({ title: '仅维修人员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('repairer')) return;
     // 支持从首页或其他入口预设 tab（URL 参数优先，其次 Storage）
     const presetTab = (options && options.tab) || wx.getStorageSync('mytasksTab') || '';
     if (presetTab) {
@@ -77,7 +74,7 @@ Page({
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      const rows = this.extractList(res);
+      const rows = util.extractList(res);
 
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),
@@ -98,12 +95,6 @@ Page({
     const app = getApp();
     const info = app.getUserInfo() || {};
     return info.id;
-  },
-
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   },
 
   onPullDownRefresh() {

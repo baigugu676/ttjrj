@@ -2,6 +2,7 @@
 // 说明：此页是 TabBar 的「工单」页。维修人员进入时重定向到我的维修任务，
 //       管理员进入时重定向到工单管理（见分工文档 §2 app.json 要点）
 const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -70,7 +71,7 @@ Page({
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      const rows = this.extractList(res);
+      const rows = util.extractList(res);
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),
         page: target,
@@ -90,13 +91,6 @@ Page({
     const app = getApp();
     const info = app.getUserInfo() || {};
     return info.id;
-  },
-
-  // 兼容 {list,total} 与裸数组两种返回
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   },
 
   // 下拉刷新

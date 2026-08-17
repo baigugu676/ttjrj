@@ -36,6 +36,20 @@ async function sendNotification(userId, orderId, type, title, content) {
 }
 
 /**
+ * 批量发送相同内容的通知（单条多值 INSERT，避免 N 个接收人 N 次往返）
+ */
+async function sendNotificationBatch(userIds, orderId, type, title, content) {
+  const targets = userIds.filter(Boolean);
+  if (!targets.length) return;
+  const values = targets.map(() => '(?, ?, ?, ?, ?)');
+  const params = targets.flatMap((uid) => [uid, orderId, type, title, content]);
+  await pool.query(
+    `INSERT INTO notifications (user_id, order_id, type, title, content) VALUES ${values.join(', ')}`,
+    params
+  );
+}
+
+/**
  * 工单状态变更通知（规范中约定的统一入口）
  * @param {number} orderId       工单ID
  * @param {string} action        动作（见上方说明）
@@ -56,10 +70,8 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
   switch (action) {
     case 'submitted': {
       // 工单提交 → 通知所有管理员审核
-      for (const adminId of await getAdminIds()) {
-        await sendNotification(adminId, orderId, 'order_submitted', '新工单待审核',
-          `收到来自「${locationName}」的故障报修工单 ${orderNo}，请及时审核。`);
-      }
+      await sendNotificationBatch(await getAdminIds(), orderId, 'order_submitted', '新工单待审核',
+        `收到来自「${locationName}」的故障报修工单 ${orderNo}，请及时审核。`);
       break;
     }
     case 'approved': {
@@ -86,10 +98,8 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
     }
     case 'repair_done': {
       // 维修完成（或返修后重新提交）→ 通知管理员验收/审核
-      for (const adminId of await getAdminIds()) {
-        await sendNotification(adminId, orderId, 'order_repair_done', '维修完成待处理',
-          `工单 ${orderNo}（${locationName}）已完成维修${extra ? `，${extra}` : ''}，请及时处理。`);
-      }
+      await sendNotificationBatch(await getAdminIds(), orderId, 'order_repair_done', '维修完成待处理',
+        `工单 ${orderNo}（${locationName}）已完成维修${extra ? `，${extra}` : ''}，请及时处理。`);
       break;
     }
     case 'accepted': {

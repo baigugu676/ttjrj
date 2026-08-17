@@ -6,7 +6,7 @@
 const jwt = require('jsonwebtoken');
 const pool = require('../config/db');
 
-// 用户状态缓存（TTL 30 秒）：禁用/删除账号后最长 30 秒内生效，避免每个请求都查库
+// 用户状态缓存（TTL 30 秒）：禁用/删除/改角色后最长 30 秒内生效，避免每个请求都查库
 const userStatusCache = new Map();
 const STATUS_TTL_MS = 30 * 1000;
 
@@ -36,6 +36,9 @@ async function auth(req, res, next) {
     return res.status(401).json({ code: 1, message: 'token 无效或已过期，请重新登录' });
   }
 
+  // 数据库实时角色（状态校验关闭或数据库短暂不可用时为 null，回退 token 中的 role）
+  let dbRole = null;
+
   // 校验账号存在且未被禁用（防止禁用后旧 token 继续使用）
   if (process.env.AUTH_STATUS_CHECK !== '0') {
     try {
@@ -46,12 +49,15 @@ async function auth(req, res, next) {
       if (cached && cached.exp > Date.now()) {
         exists = cached.exists;
         active = cached.active;
+        dbRole = cached.role;
       } else if (dbDownUntil <= Date.now()) {
         try {
-          const [rows] = await pool.query(`SELECT status FROM users WHERE id = ?`, [payload.id]);
+          // 同时回查 role：角色调整（降权/提权）后以数据库实时值为准，不受旧 token 中 role 影响
+          const [rows] = await pool.query(`SELECT role, status FROM users WHERE id = ?`, [payload.id]);
           exists = rows.length > 0;
           active = exists && rows[0].status === 'active';
-          userStatusCache.set(cacheKey, { exists, active, exp: Date.now() + STATUS_TTL_MS });
+          dbRole = exists ? rows[0].role : null;
+          userStatusCache.set(cacheKey, { exists, active, role: dbRole, exp: Date.now() + STATUS_TTL_MS });
           if (userStatusCache.size > 5000) userStatusCache.clear();
         } catch (dbErr) {
           // 数据库不可用：短暂放行，避免认证层把服务整体打挂（后续业务查询同样会失败）
@@ -69,10 +75,10 @@ async function auth(req, res, next) {
     }
   }
 
-  // 挂载当前用户信息到请求对象
+  // 挂载当前用户信息到请求对象（role 以数据库实时值为准，查不到时回退 token 中的 role）
   req.user = {
     id: payload.id,
-    role: payload.role,
+    role: dbRole || payload.role,
     real_name: payload.real_name
   };
   next();

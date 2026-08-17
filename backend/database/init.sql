@@ -68,6 +68,9 @@ CREATE TABLE work_orders (
   KEY idx_reporter_id (reporter_id),
   KEY idx_location_id (location_id),
   KEY idx_assigned_repairer_id (assigned_repairer_id),
+  KEY idx_created_at (created_at, id),
+  KEY idx_reporter_created (reporter_id, created_at),
+  KEY idx_repairer_created (assigned_repairer_id, created_at),
   CONSTRAINT fk_wo_reporter  FOREIGN KEY (reporter_id)          REFERENCES users (id),
   CONSTRAINT fk_wo_location  FOREIGN KEY (location_id)          REFERENCES locations (id),
   CONSTRAINT fk_wo_repairer  FOREIGN KEY (assigned_repairer_id) REFERENCES users (id),
@@ -127,6 +130,7 @@ CREATE TABLE acceptance_records (
   KEY idx_order_id (order_id),
   KEY idx_order_accepted_at (order_id, accepted_at),
   KEY idx_reviewer_id (reviewer_id),
+  KEY idx_result_accepted (result, accepted_at),
   CONSTRAINT fk_ar_order    FOREIGN KEY (order_id)    REFERENCES work_orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_ar_reviewer FOREIGN KEY (reviewer_id) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='验收记录表';

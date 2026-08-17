@@ -164,7 +164,8 @@ router.get('/', async (req, res, next) => {
     if (req.query.completed_today === '1' || req.query.completed_today === 'true') {
       where.push(`wo.status = 'completed' AND EXISTS (
         SELECT 1 FROM acceptance_records ar
-        WHERE ar.order_id = wo.id AND ar.result = 'pass' AND DATE(ar.accepted_at) = CURDATE()
+        WHERE ar.order_id = wo.id AND ar.result = 'pass'
+          AND ar.accepted_at >= CURDATE() AND ar.accepted_at < CURDATE() + INTERVAL 1 DAY
       )`);
     }
 
@@ -240,7 +241,8 @@ router.get('/export', requireRole('admin'), async (req, res, next) => {
     if (req.query.completed_today === '1' || req.query.completed_today === 'true') {
       where.push(`wo.status = 'completed' AND EXISTS (
         SELECT 1 FROM acceptance_records ar
-        WHERE ar.order_id = wo.id AND ar.result = 'pass' AND DATE(ar.accepted_at) = CURDATE()
+        WHERE ar.order_id = wo.id AND ar.result = 'pass'
+          AND ar.accepted_at >= CURDATE() AND ar.accepted_at < CURDATE() + INTERVAL 1 DAY
       )`);
     }
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -262,7 +264,10 @@ router.get('/export', requireRole('admin'), async (req, res, next) => {
     const header = ['工单号', '点位名称', '区域', '设备类型', '故障描述', '报修人', '维修人员', '状态', '创建时间', '更新时间'];
     const esc = (v) => {
       const s = v === null || v === undefined ? '' : String(v);
-      return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+      // 防 CSV 公式注入：以 = + - @ 等开头的单元格会被 Excel 当公式执行，前置单引号中和
+      const needsQuote = /[",\n\r]/.test(s);
+      const safe = /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+      return needsQuote || safe !== s ? '"' + safe.replace(/"/g, '""') + '"' : safe;
     };
     const fmtTime = (v) => (v ? String(v).replace('T', ' ').slice(0, 19) : '');
     const lines = [header.map(esc).join(',')];

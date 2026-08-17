@@ -31,9 +31,10 @@ function formatDate(date) {
  */
 router.get('/overview', async (req, res, next) => {
   try {
-    // 今日新增工单数
+    // 今日新增工单数（范围条件而非 DATE()=CURDATE()，保证能走 created_at 索引）
     const [[todayNew]] = await pool.query(
-      `SELECT COUNT(*) AS cnt FROM work_orders WHERE DATE(created_at) = CURDATE()`
+      `SELECT COUNT(*) AS cnt FROM work_orders
+       WHERE created_at >= CURDATE() AND created_at < CURDATE() + INTERVAL 1 DAY`
     );
 
     // 待处理工单数（管理员待办 = 待审核 + 待验收）

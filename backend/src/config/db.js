@@ -16,10 +16,17 @@ const pool = mysql.createPool({
   password: process.env.DB_PASSWORD || '',
   database: process.env.DB_NAME || 'repair_system',
   waitForConnections: true,   // 连接用完时排队等待
-  connectionLimit: 10,        // 最大连接数
+  connectionLimit: Number(process.env.DB_POOL_LIMIT) || 10,  // 最大连接数（可按环境调整）
+  maxIdle: Number(process.env.DB_POOL_MAX_IDLE) || 10,       // 最大空闲连接数
+  idleTimeout: Number(process.env.DB_POOL_IDLE_TIMEOUT) || 60000, // 空闲连接回收时间(ms)
   queueLimit: 0,              // 排队不设上限
   charset: 'utf8mb4',         // 支持中文
   timezone: '+08:00'          // 驱动层日期↔字符串互转使用中国时区
+});
+
+// 连接池级异常兜底：未监听的 error 事件会导致进程直接崩溃
+pool.on('error', (err) => {
+  console.error('[db] 连接池发生错误:', err.message);
 });
 
 // 设置 MySQL 会话时区为 +08:00：

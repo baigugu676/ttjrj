@@ -33,11 +33,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅管理员可访问
-    if (app.getRole() !== 'admin') {
-      wx.showToast({ title: '仅管理员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('admin')) return;
     this._initialLoad = true;
     this.loadList(true);
   },
@@ -79,7 +75,7 @@ Page({
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      const rows = this.decorate(this.extractList(res));
+      const rows = this.decorate(util.extractList(res));
       // 后端未做分页时返回纯数组，此时一次取全量，标记无更多
       const isArray = Array.isArray(res);
       this.setData({
@@ -105,12 +101,6 @@ Page({
       avatar_url: u.avatar_url ? util.resolveImageUrl(u.avatar_url) : u.avatar_url,
       avatar: u.avatar ? util.resolveImageUrl(u.avatar) : u.avatar
     }));
-  },
-
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   },
 
   onPullDownRefresh() {

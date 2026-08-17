@@ -19,11 +19,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅管理员可访问
-    if (app.getRole() !== 'admin') {
-      wx.showToast({ title: '仅管理员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('admin')) return;
     this._initialLoad = true;
     this.loadAll();
   },
@@ -45,13 +41,36 @@ Page({
 
   loadAll() {
     this.setData({ loadError: '' });
-    const overviewReq = api.get('/statistics/overview', {}, { loading: false }).catch(() => ({}));
-    const distReq = api.get('/statistics/status-distribution', {}, { loading: false }).catch(() => []);
-    const trendReq = api.get('/statistics/trend', {}, { loading: false }).catch(() => []);
-    const locReq = api.get('/statistics/location-ranking', {}, { loading: false }).catch(() => []);
-    const workReq = api.get('/statistics/repairer-workload', {}, { loading: false }).catch(() => []);
+    // 记录各子请求成败：全部失败才展示错误重试 UI，部分失败时降级展示已有数据并轻提示，
+    // 避免断网时页面静默显示全 0
+    const track = (p) => p.then(
+      (v) => ({ ok: true, v }),
+      (err) => ({ ok: false, err })
+    );
+    const requests = [
+      track(api.get('/statistics/overview', {}, { loading: false })),
+      track(api.get('/statistics/status-distribution', {}, { loading: false })),
+      track(api.get('/statistics/trend', {}, { loading: false })),
+      track(api.get('/statistics/repairer-workload', {}, { loading: false })),
+      track(api.get('/statistics/location-ranking', {}, { loading: false }))
+    ];
 
-    return Promise.all([overviewReq, distReq, trendReq, workReq, locReq]).then(([overview, dist, trend, workload, locRank]) => {
+    return Promise.all(requests).then((results) => {
+      const failed = results.filter((r) => !r.ok);
+      if (failed.length === results.length) {
+        const err = failed[0] && failed[0].err;
+        this.setData({ loadError: (err && err.message) || '统计数据加载失败，请下拉重试' });
+        return;
+      }
+      if (failed.length) {
+        wx.showToast({ title: '部分统计数据加载失败', icon: 'none' });
+      }
+      const [overviewR, distR, trendR, workR, locR] = results;
+      const overview = overviewR.v || {};
+      const dist = distR.v || [];
+      const trend = trendR.v || [];
+      const workload = workR.v || [];
+      const locRank = locR.v || [];
       // ---- 概览：兼容后端字段 pending_count / month_completed / today_new / avg_repair_minutes ----
       const ov = overview || {};
       const normalizedOverview = {
@@ -71,7 +90,7 @@ Page({
       }
 
       // ---- 状态分布：兼容后端 { status, label, count } ----
-      const distList = this.extractList(dist);
+      const distList = util.extractList(dist);
       const statusDist = distList.map((item) => {
         const status = item.status || item.order_status || '';
         const info = util.STATUS_MAP[status] || { text: '未知', color: '#999999' };
@@ -87,20 +106,20 @@ Page({
       statusDist.forEach((d) => { d.percent = Math.round(d.count / max * 100); });
 
       // ---- 近30天趋势：兼容 { date, new_count, completed_count } ----
-      const trendList = this.extractList(trend).map((t) => ({
+      const trendList = util.extractList(trend).map((t) => ({
         date: (t.date || '').slice(5),                    // 只保留 MM-DD 便于展示
         new_count: Number(t.new_count != null ? t.new_count : t.new) || 0,
         completed_count: Number(t.completed_count != null ? t.completed_count : t.completed) || 0
       }));
 
       // ---- 点位故障排行：后端返回 fault_count ----
-      const locationRank = this.extractList(locRank).map((item) => ({
+      const locationRank = util.extractList(locRank).map((item) => ({
         name: item.name || item.location_name || '未知点位',
         count: Number(item.fault_count != null ? item.fault_count : item.count) || 0
       }));
 
       // ---- 维修人员工作量：归一化 total/completed/repairing/pending，并计算堆叠条比例 ----
-      const repairerWorkload = this.extractList(workload).map((item) => {
+      const repairerWorkload = util.extractList(workload).map((item) => {
         const total = Number(item.total_assigned != null ? item.total_assigned : item.count) || 0;
         const completed = Number(item.completed_count) || 0;
         const repairing = Number(item.repairing_count) || 0;
@@ -256,11 +275,5 @@ Page({
     rows.push(['姓名', '总指派', '已完成', '维修中', '待处理']);
     this.data.repairerWorkload.forEach((w) => rows.push([w.name, w.total, w.completed, w.repairing, w.pending]));
     return rows;
-  },
-
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   }
 });

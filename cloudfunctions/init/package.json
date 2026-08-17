@@ -4,7 +4,6 @@
   "description": "微信云开发 - 初始化（创建集合 + 预置测试数据）",
   "main": "index.js",
   "dependencies": {
-    "wx-server-sdk": "~2.6.3",
-    "bcryptjs": "^2.4.3"
+    "wx-server-sdk": "~2.6.3"
   }
 }

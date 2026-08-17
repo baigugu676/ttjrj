@@ -282,6 +282,29 @@ function previewImages(urls, current) {
   wx.previewImage({ urls, current: cur });
 }
 
+/**
+ * 从接口返回中提取列表（兼容纯数组与 { list: [...] } 两种返回结构）
+ */
+function extractList(res) {
+  if (Array.isArray(res)) return res;
+  if (res && res.list) return res.list;
+  return [];
+}
+
+/**
+ * 页面角色守卫：角色不符时提示并跳回首页 tab，返回 false。
+ * 用法：if (!util.guardRole('admin')) return;
+ */
+function guardRole(role) {
+  const app = getApp();
+  if (app && app.getRole && app.getRole() === role) return true;
+  wx.showToast({ title: '仅' + getRoleText(role) + '可访问', icon: 'none' });
+  setTimeout(() => {
+    wx.switchTab({ url: '/pages/index/index' });
+  }, 1000);
+  return false;
+}
+
 module.exports = {
   STATUS_MAP,
   ROLE_MAP,
@@ -300,5 +323,7 @@ module.exports = {
   getRepairRecord,
   getAcceptanceRecord,
   buildTimelineSteps,
-  previewImages
+  previewImages,
+  extractList,
+  guardRole
 };

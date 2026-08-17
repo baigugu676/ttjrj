@@ -23,11 +23,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅管理员可访问
-    if (app.getRole() !== 'admin') {
-      wx.showToast({ title: '仅管理员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('admin')) return;
     this.setData({ id: options.id, repairerIndex: -1 });
     this.loadDetail();
     this.loadRepairers();

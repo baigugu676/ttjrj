@@ -76,7 +76,11 @@ exports.main = async (event) => {
       }
     }
   } catch (err) {
-    // users 集合不存在时视为首次初始化，继续执行
+    // 仅「users 集合不存在」视为首次初始化并放行；其他错误（如临时故障）不得绕过管理员校验
+    const msg = (err && (err.message || err.errMsg || String(err))) || '';
+    if (!/not exist|不存在|DATABASE_COLLECTION_NOT_EXIST/i.test(msg)) {
+      return { code: 1, message: `初始化前校验失败：${msg || '未知错误'}` };
+    }
   }
   const created = [];
   for (const name of COLLECTIONS) {

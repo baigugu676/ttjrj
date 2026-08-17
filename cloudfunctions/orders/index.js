@@ -118,6 +118,33 @@ async function fetchAll(baseQuery, pageSize = 1000, maxPages = 50) {
   return out;
 }
 
+/**
+ * 已完成工单按点位分组计数（聚合结果按点位数分页拉全量）。
+ * 替代全量拉取已完成工单明细：completed 集合只增不减，明细拉取的开销会随数据量线性恶化，
+ * 而分组结果的规模只与点位数相关。
+ */
+async function fetchCompletedCountsByLocation() {
+  const counts = new Map();
+  const pageSize = 100;
+  const maxPages = 50;
+  for (let page = 0; page < maxPages; page++) {
+    const res = await db.collection('work_orders')
+      .aggregate()
+      .match({ status: 'completed' })
+      .group({ _id: '$location_id', count: $.sum(1) })
+      .skip(page * pageSize)
+      .limit(pageSize)
+      .end();
+    const list = res.list || [];
+    list.forEach((g) => {
+      const key = String(g._id);
+      counts.set(key, (counts.get(key) || 0) + (Number(g.count) || 0));
+    });
+    if (list.length < pageSize) break;
+  }
+  return counts;
+}
+
 function todayStart() {
   const now = new Date();
   const beijing = new Date(now.getTime() + 8 * 3600 * 1000);
@@ -197,12 +224,12 @@ async function getMonitorOverviewSummary() {
 
   let locationStates;
   try {
-    const [locationsRes, openOrders, completedLocs] = await Promise.all([
+    const [locationsRes, openOrders, completedByLocation] = await Promise.all([
       fetchAll(db.collection('locations').field({ _id: true, status: true })),
       // 只拉未完成工单判断当前状态，避免全量工单的 limit 截断
       fetchAll(db.collection('work_orders').where({ status: _.in(OPEN_STATUSES) }).field({ location_id: true, status: true })),
-      // 已完成工单的位置分布（用于按启用点位口径统计 completedOrders）
-      fetchAll(db.collection('work_orders').where({ status: 'completed' }).field({ location_id: true }))
+      // 已完成工单按点位分组计数（用于按启用点位口径统计 completedOrders）
+      fetchCompletedCountsByLocation()
     ]);
 
     // 历史点位可能缺少 status 字段，仅剔除明确停用的点位，其余视为启用
@@ -233,7 +260,10 @@ async function getMonitorOverviewSummary() {
       else normal += 1;
     });
     // 与 REST 口径一致：仅统计启用点位下的已完成工单
-    const completedOrders = completedLocs.filter((o) => activeLocationIds.has(String(o.location_id))).length;
+    let completedOrders = 0;
+    completedByLocation.forEach((cnt, locId) => {
+      if (activeLocationIds.has(locId)) completedOrders += cnt;
+    });
     return {
       total,
       normal,
@@ -291,18 +321,17 @@ async function getDashboard(user) {
     ]);
     const counts = countByStatus(statusRes.list);
 
-    // 今日完成：与 completed_today 筛选口径一致 —— 今日验收通过且指派给本人的工单数
+    // 今日完成：与 completed_today 筛选口径一致 —— 今日验收通过且指派给本人的工单数（分块并行计数）
     let todayCompleted = 0;
     if (todayPassedIds.length) {
-      for (let i = 0; i < todayPassedIds.length; i += 500) {
-        const chunk = todayPassedIds.slice(i, i + 500);
-        const chunkRes = await db.collection('work_orders')
+      const chunks = [];
+      for (let i = 0; i < todayPassedIds.length; i += 500) chunks.push(todayPassedIds.slice(i, i + 500));
+      const counts = await Promise.all(chunks.map((chunk) =>
+        db.collection('work_orders')
           .where({ assigned_repairer_id: user._id, _id: _.in(chunk) })
-          .field({ _id: true })
-          .limit(500)
-          .get();
-        todayCompleted += chunkRes.data.length;
-      }
+          .count()
+      ));
+      todayCompleted = counts.reduce((sum, c) => sum + (c.total || 0), 0);
     }
 
     return {
@@ -400,10 +429,12 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
 
   switch (action) {
     case 'submitted': {
-      for (const adminId of await getAdminIds()) {
-        await sendNotification(adminId, orderId, orderNo, 'order_submitted', '新工单待审核',
-          `收到来自「${locationName}」的故障报修工单 ${orderNo}，请及时审核。`);
-      }
+      // 工单提交 → 通知所有管理员审核（并行写入）
+      const admins = await getAdminIds();
+      await Promise.all(admins.map((adminId) =>
+        sendNotification(adminId, orderId, orderNo, 'order_submitted', '新工单待审核',
+          `收到来自「${locationName}」的故障报修工单 ${orderNo}，请及时审核。`)
+      ));
       break;
     }
     case 'approved': {
@@ -426,10 +457,12 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       break;
     }
     case 'repair_done': {
-      for (const adminId of await getAdminIds()) {
-        await sendNotification(adminId, orderId, orderNo, 'order_repair_done', '维修完成待处理',
-          `工单 ${orderNo}（${locationName}）已完成维修${extra ? `，${extra}` : ''}，请及时处理。`);
-      }
+      // 维修完成（或返修后重新提交）→ 通知管理员验收/审核（并行写入）
+      const admins = await getAdminIds();
+      await Promise.all(admins.map((adminId) =>
+        sendNotification(adminId, orderId, orderNo, 'order_repair_done', '维修完成待处理',
+          `工单 ${orderNo}（${locationName}）已完成维修${extra ? `，${extra}` : ''}，请及时处理。`)
+      ));
       break;
     }
     case 'accepted': {

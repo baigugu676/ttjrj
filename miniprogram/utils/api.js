@@ -13,6 +13,45 @@ wx.cloud.init(Object.assign({ traceUser: true }, cloudConfig));
 const SERVER_BASE = '';
 const BASE_URL = '';
 
+// 鉴权失效的识别规则：命中后统一清理会话并引导重新登录
+const AUTH_FAIL_RE = /未登录|token|账号已被禁用/;
+
+// wx.showLoading/hideLoading 是全局单例：并发多个 loading 请求时，
+// 先完成者不能把其余在途请求的 loading 一并隐藏，用引用计数归零时才隐藏
+let loadingCount = 0;
+function showLoadingMasked(title) {
+  if (loadingCount === 0) wx.showLoading({ title, mask: true });
+  loadingCount += 1;
+}
+function hideLoadingCounted() {
+  loadingCount = Math.max(0, loadingCount - 1);
+  if (loadingCount === 0) wx.hideLoading();
+}
+
+/**
+ * 鉴权失效统一处理：清除本地登录态并回登录页。
+ * 否则 token 过期后每个请求都会报错，且永远不会被引导重新登录。
+ */
+function handleAuthFailure() {
+  wx.removeStorageSync('token');
+  wx.removeStorageSync('userInfo');
+  try {
+    const app = getApp();
+    if (app && app.globalData) {
+      app.globalData.token = '';
+      app.globalData.userInfo = null;
+    }
+  } catch (e) {
+    // App 尚未创建（如启动阶段）时忽略
+  }
+  // 已在登录页时不再 reLaunch，避免自我重定向死循环
+  const pages = getCurrentPages();
+  const route = pages.length ? pages[pages.length - 1].route : '';
+  if (route !== 'pages/login/login') {
+    wx.reLaunch({ url: '/pages/login/login' });
+  }
+}
+
 /**
  * 云函数调用统一入口
  * @param {String} name      云函数名（login/users/locations/orders/statistics/notifications）
@@ -29,12 +68,12 @@ function callCloud(name, data = {}, options = {}) {
       if (settled) return;
       settled = true;
       if (timer) clearTimeout(timer);
-      if (loading) wx.hideLoading();
+      if (loading) hideLoadingCounted();
       handler(value);
     };
 
     if (loading) {
-      wx.showLoading({ title: loadingText, mask: true });
+      showLoadingMasked(loadingText);
     }
 
     timer = setTimeout(() => {
@@ -50,6 +89,12 @@ function callCloud(name, data = {}, options = {}) {
         const result = res && res.result;
         if (result && typeof result === 'object' && 'code' in result && result.code !== 0) {
           const msg = result.message || '请求失败';
+          if (result.code === 401 || AUTH_FAIL_RE.test(msg)) {
+            if (!silent) wx.showToast({ title: '登录已过期，请重新登录', icon: 'none' });
+            finish(reject, new Error('登录已过期，请重新登录'));
+            handleAuthFailure();
+            return;
+          }
           if (!silent) wx.showToast({ title: msg, icon: 'none' });
           finish(reject, new Error(msg));
         } else if (result === undefined || result === null) {
@@ -205,14 +250,25 @@ function request(method, url, data = {}, options = {}) {
  * 2. 调用 orders.addImage 将图片记录写入 order_images 集合
  * @param {String} filePath 本地文件路径
  * @param {Object} formData { order_id, image_type }
- * @param {Object} options  { loading, silent }
+ * @param {Object} options  { loading, silent, timeoutMs }
  */
 function upload(filePath, formData = {}, options = {}) {
-  const { loading = true, silent = false } = options;
+  const { loading = true, silent = false, timeoutMs = 30000 } = options;
   return new Promise((resolve, reject) => {
     if (loading) {
-      wx.showLoading({ title: '上传中...', mask: true });
+      showLoadingMasked('上传中...');
     }
+    // uploadFile 无超时兜底，卡住时提交按钮会永久停留在"正在提交"，必须自己加超时
+    let settled = false;
+    const timer = setTimeout(() => {
+      if (settled) return;
+      settled = true;
+      if (loading) hideLoadingCounted();
+      const msg = '上传超时，请检查网络后重试';
+      if (!silent) wx.showToast({ title: msg, icon: 'none' });
+      reject(new Error(msg));
+    }, Math.max(1, Number(timeoutMs) || 30000));
+
     const orderId = formData.order_id || 'unknown';
     const extMatch = /\.(\w+)$/.exec(filePath || '');
     const ext = extMatch ? extMatch[1] : 'jpg';
@@ -222,6 +278,10 @@ function upload(filePath, formData = {}, options = {}) {
       cloudPath,
       filePath,
       success: (res) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (loading) hideLoadingCounted();
         const fileID = res.fileID;
         // 记录到 order_images；即使记录失败也不影响图片已上传
         // 携带 _token 便于服务端识别当前账号（云函数会校验其与 OPENID 绑定一致）
@@ -251,12 +311,13 @@ function upload(filePath, formData = {}, options = {}) {
         });
       },
       fail: (err) => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (loading) hideLoadingCounted();
         const msg = (err && err.errMsg) || '网络异常，上传失败';
         if (!silent) wx.showToast({ title: msg, icon: 'none' });
         reject(new Error(msg));
-      },
-      complete: () => {
-        if (loading) wx.hideLoading();
       }
     });
   });
@@ -270,7 +331,10 @@ function upload(filePath, formData = {}, options = {}) {
 function exportCsv(filename, rows) {
   const esc = (v) => {
     const s = v === null || v === undefined ? '' : String(v);
-    return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
+    // 防 CSV 公式注入：以 = + - @ 等开头的单元格会被 Excel 当公式执行，前置单引号中和
+    const needsQuote = /[",\n\r]/.test(s);
+    const safe = /^[=+\-@\t\r]/.test(s) ? "'" + s : s;
+    return needsQuote || safe !== s ? '"' + safe.replace(/"/g, '""') + '"' : safe;
   };
   const csv = '﻿' + (rows || []).map((r) => r.map(esc).join(',')).join('\r\n');
   const fs = wx.getFileSystemManager();

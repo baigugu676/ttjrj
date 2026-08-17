@@ -66,6 +66,33 @@ async function fetchAll(baseQuery, pageSize = 1000, maxPages = 50) {
   return out;
 }
 
+/**
+ * 已完成工单按点位分组计数（聚合结果按点位数分页拉全量）。
+ * 替代全量拉取已完成工单明细：completed 集合只增不减，明细拉取的开销会随数据量线性恶化，
+ * 而分组结果的规模只与点位数相关。
+ */
+async function fetchCompletedCountsByLocation() {
+  const counts = new Map();
+  const pageSize = 100;
+  const maxPages = 50;
+  for (let page = 0; page < maxPages; page++) {
+    const res = await db.collection('work_orders')
+      .aggregate()
+      .match({ status: 'completed' })
+      .group({ _id: '$location_id', count: $.sum(1) })
+      .skip(page * pageSize)
+      .limit(pageSize)
+      .end();
+    const list = res.list || [];
+    list.forEach((g) => {
+      const key = String(g._id);
+      counts.set(key, (counts.get(key) || 0) + (Number(g.count) || 0));
+    });
+    if (list.length < pageSize) break;
+  }
+  return counts;
+}
+
 // 按验收记录（今日验收通过）提取今日完成工单的 order_id 集合，与 orders completed_today 口径一致
 async function getTodayPassedOrderIds() {
   const ids = new Set();
@@ -107,12 +134,12 @@ async function statusCounts(condition) {
 }
 
 async function monitorOverview() {
-  const [locationsRes, openOrders, completedLocs] = await Promise.all([
+  const [locationsRes, openOrders, completedByLocation] = await Promise.all([
     // 口径与 orders/locations 云函数一致：非 inactive 即启用（兼容历史缺 status 数据）
     fetchAll(db.collection('locations').field({ _id: true, status: true })),
     fetchAll(db.collection('work_orders').where({ status: _.in(OPEN_STATUSES) }).field({ location_id: true, status: true })),
-    // 已完成工单的位置分布（用于按启用点位口径统计 completedOrders，与 REST 一致）
-    fetchAll(db.collection('work_orders').where({ status: 'completed' }).field({ location_id: true }))
+    // 已完成工单按点位分组计数（用于按启用点位口径统计 completedOrders，与 REST 一致）
+    fetchCompletedCountsByLocation()
   ]);
   const activeIds = new Set(locationsRes.filter((location) => location.status !== 'inactive').map((location) => String(location._id)));
   const states = new Map();
@@ -132,7 +159,10 @@ async function monitorOverview() {
     else if (status === 'fault') fault += 1;
     else normal += 1;
   });
-  const completedOrders = completedLocs.filter((o) => activeIds.has(String(o.location_id))).length;
+  let completedOrders = 0;
+  completedByLocation.forEach((cnt, locId) => {
+    if (activeIds.has(locId)) completedOrders += cnt;
+  });
   return {
     total,
     normal,
@@ -176,18 +206,17 @@ async function repairerDashboard(user) {
     db.collection('work_orders').where(repairingCondition).orderBy('created_at', 'desc').limit(3).get(),
     getTodayPassedOrderIds()
   ]);
-  // 今日完成口径：今日验收通过且指派给本人的工单数（与 orders completed_today 一致）
+  // 今日完成口径：今日验收通过且指派给本人的工单数（与 orders completed_today 一致，分块并行计数）
   let todayCompleted = 0;
   if (todayPassedIds.length) {
-    for (let i = 0; i < todayPassedIds.length; i += 500) {
-      const chunk = todayPassedIds.slice(i, i + 500);
-      const chunkRes = await db.collection('work_orders')
+    const chunks = [];
+    for (let i = 0; i < todayPassedIds.length; i += 500) chunks.push(todayPassedIds.slice(i, i + 500));
+    const counts = await Promise.all(chunks.map((chunk) =>
+      db.collection('work_orders')
         .where({ assigned_repairer_id: user._id, _id: _.in(chunk) })
-        .field({ _id: true })
-        .limit(500)
-        .get();
-      todayCompleted += chunkRes.data.length;
-    }
+        .count()
+    ));
+    todayCompleted = counts.reduce((sum, c) => sum + (c.total || 0), 0);
   }
   return {
     stats: {

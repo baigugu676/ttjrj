@@ -14,6 +14,9 @@ dotenv.config();
 
 const app = express();
 
+// 隐藏 Express 框架标识，减少指纹信息
+app.disable('x-powered-by');
+
 // CORS 配置：可通过环境变量 CORS_ORIGINS（逗号分隔）配置可信来源白名单；
 // 未配置时保持默认放开（小程序/移动端请求不带 Origin，仅 Web 管理后台需要收紧）
 const corsOrigins = (process.env.CORS_ORIGINS || '')
@@ -30,8 +33,8 @@ if (corsOrigins.length) {
   app.use(cors());
 }
 
-// 解析 JSON 请求体
-app.use(express.json({ limit: '10mb' }));
+// 解析 JSON 请求体（图片走 multipart 上传，JSON 接口 1mb 足够，同时限制 DoS 攻击面）
+app.use(express.json({ limit: '1mb' }));
 
 // 静态文件服务：uploads 目录下的图片可通过 /uploads/xxx 直接访问
 const uploadDir = path.join(__dirname, '..', process.env.UPLOAD_DIR || 'uploads');

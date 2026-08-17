@@ -1,5 +1,6 @@
 // 点位管理（管理员）：点位列表 + 添加/编辑（弹窗）+ 删除
 const api = require('../../../utils/api.js');
+const util = require('../../../utils/util.js');
 
 Page({
   data: {
@@ -16,11 +17,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅管理员可访问
-    if (app.getRole() !== 'admin') {
-      wx.showToast({ title: '仅管理员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('admin')) return;
     this._initialLoad = true;
     this.loadList();
   },

@@ -98,12 +98,17 @@ exports.main = async (event) => {
     if (action === 'list') {
       const page = Math.max(1, Number(event.page) || 1);
       const pageSize = Math.min(100, Math.max(1, Number(event.pageSize) || 20));
-      // 角色过滤下沉到数据库，分页拉全量后仅在内存做关键字过滤与分页
+      // 字段投影：password_hash/openid 等敏感字段不离开数据库；
+      // 角色过滤下沉到数据库，关键字过滤与分页在内存完成
+      const userFields = {
+        username: true, real_name: true, phone: true, role: true,
+        status: true, avatar_url: true, created_at: true, updated_at: true
+      };
       let all = [];
       if (event.role && VALID_ROLES.includes(event.role)) {
-        all = await fetchAll(db.collection('users').where({ role: event.role }).orderBy('created_at', 'asc'));
+        all = await fetchAll(db.collection('users').where({ role: event.role }).field(userFields).orderBy('created_at', 'asc'));
       } else {
-        all = await fetchAll(db.collection('users').orderBy('created_at', 'asc'));
+        all = await fetchAll(db.collection('users').field(userFields).orderBy('created_at', 'asc'));
       }
       const keyword = event.keyword ? String(event.keyword).trim().toLowerCase() : '';
       const filtered = keyword

@@ -32,11 +32,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅维修人员可访问
-    if (app.getRole() !== 'repairer') {
-      wx.showToast({ title: '仅维修人员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('repairer')) return;
     // 默认维修时间为当前时间，并强制复位提交状态（防止热重载保留旧状态）
     const now = new Date();
     this.setData({

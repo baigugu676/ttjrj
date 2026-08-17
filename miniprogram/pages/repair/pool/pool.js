@@ -15,11 +15,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅维修人员可访问
-    if (app.getRole() !== 'repairer') {
-      wx.showToast({ title: '仅维修人员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('repairer')) return;
     // 首次加载交给 onShow（onLoad 后必触发），避免首屏重复请求
   },
 
@@ -47,7 +43,7 @@ Page({
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      const rows = this.decorate(this.extractList(res));
+      const rows = this.decorate(util.extractList(res));
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),
         page: target,
@@ -72,12 +68,6 @@ Page({
       action_text: o.status === 'repair_returned' ? '去返修' : '接 单',
       action_type: o.status === 'repair_returned' ? 'repair' : 'accept'
     }));
-  },
-
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   },
 
   onPullDownRefresh() {

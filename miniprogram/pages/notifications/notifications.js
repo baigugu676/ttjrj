@@ -33,7 +33,7 @@ Page({
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      const rows = this.formatList(this.extractList(res));
+      const rows = this.formatList(util.extractList(res));
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),
         page: target,
@@ -47,12 +47,6 @@ Page({
     }).finally(() => {
       wx.stopPullDownRefresh();
     });
-  },
-
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   },
 
   formatList(rows) {
@@ -76,9 +70,10 @@ Page({
     const id = e.currentTarget.dataset.id;
     const index = e.currentTarget.dataset.index;
     api.put('/notifications/' + id + '/read', {}, { loading: false, silent: true }).then(() => {
-      const list = this.data.list.slice();
-      if (list[index]) list[index].is_read = true;
-      this.setData({ list });
+      // 局部更新单条记录，避免 setData 整个列表
+      if (this.data.list[index]) {
+        this.setData({ ['list[' + index + '].is_read']: true });
+      }
       getApp().refreshUnreadBadge();
     }).catch(() => {});
   },
@@ -112,9 +107,10 @@ Page({
     // 先标记已读
     if (id) {
       api.put('/notifications/' + id + '/read', {}, { loading: false, silent: true }).catch(() => {});
-      const list = this.data.list.slice();
-      if (list[index]) list[index].is_read = true;
-      this.setData({ list });
+      // 局部更新单条记录，避免 setData 整个列表
+      if (this.data.list[index]) {
+        this.setData({ ['list[' + index + '].is_read']: true });
+      }
       getApp().refreshUnreadBadge();
     }
     // 跳转工单详情：按角色分流，管理员进入可审核/验收的管理端详情，维修人员按通知类型进入维修执行/详情

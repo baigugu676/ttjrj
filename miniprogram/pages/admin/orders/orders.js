@@ -39,11 +39,7 @@ Page({
     const app = getApp();
     if (!app.checkLogin()) return;
     // 角色权限控制：仅管理员可访问
-    if (app.getRole() !== 'admin') {
-      wx.showToast({ title: '仅管理员可访问', icon: 'none' });
-      setTimeout(() => wx.switchTab({ url: '/pages/index/index' }), 1000);
-      return;
-    }
+    if (!util.guardRole('admin')) return;
     // 支持从首页快捷入口带入状态筛选
     if (options && options.status) {
       this.setData({ status: options.status });
@@ -121,7 +117,7 @@ Page({
       page: target,
       pageSize
     }, { loading: false }).then((res) => {
-      const rows = this.decorate(this.extractList(res));
+      const rows = this.decorate(util.extractList(res));
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),
         page: target,
@@ -148,12 +144,6 @@ Page({
         action_btn_class: action.cls
       });
     });
-  },
-
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
   },
 
   onPullDownRefresh() {

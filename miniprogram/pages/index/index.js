@@ -43,13 +43,6 @@ Page({
     }
   },
 
-  // 取列表数据（兼容 {list} 与裸数组）
-  extractList(res) {
-    if (Array.isArray(res)) return res;
-    if (res && res.list) return res.list;
-    return [];
-  },
-
   getHomeDonutSize() {
     const info = wx.getSystemInfoSync();
     return Math.max(64, Math.round((info.windowWidth || 375) * 160 / 750));
