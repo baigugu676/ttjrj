@@ -55,8 +55,23 @@
       </view>
     </block>
 
-    <!-- 管理员 -->
+    <!-- 管理员：拥有全部功能（报修 + 维修 + 管理） -->
     <block wx:else>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/create/create">
+        <text class="menu-icon">➕</text>
+        <text class="menu-text">新建报修</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/mytasks/mytasks">
+        <text class="menu-icon">🔧</text>
+        <text class="menu-text">维修记录</text>
+        <text class="arrow">›</text>
+      </view>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/repair/pool/pool">
+        <text class="menu-icon">🧰</text>
+        <text class="menu-text">待接单工单池</text>
+        <text class="arrow">›</text>
+      </view>
       <view class="menu-item" bindtap="goPage" data-url="/pages/admin/orders/orders">
         <text class="menu-icon">🗂️</text>
         <text class="menu-text">工单管理</text>

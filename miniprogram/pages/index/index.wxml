@@ -134,6 +134,14 @@
         <text class="quick-icon">↩️</text>
         <text class="quick-label">退回返修</text>
       </view>
+      <view class="quick-cell" bindtap="goPool">
+        <text class="quick-icon">🧰</text>
+        <text class="quick-label">工单池</text>
+      </view>
+      <view class="quick-cell" bindtap="goMyTasks">
+        <text class="quick-icon">🔧</text>
+        <text class="quick-label">维修任务</text>
+      </view>
       <view class="quick-cell" bindtap="goUsers">
         <text class="quick-icon">👥</text>
         <text class="quick-label">用户管理</text>

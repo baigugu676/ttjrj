@@ -1,4 +1,5 @@
-// 我的维修任务（维修人员）：维修中 / 待验收 / 已完成 / 今日完成 / 退回返修，点击"进入维修"跳转维修执行页
+// 我的维修任务（维修人员/管理员）：维修中 / 待验收 / 已完成 / 今日完成 / 退回返修，点击"进入维修"跳转维修执行页
+// 维修人员仅看指派给自己的；管理员看全部
 const api = require('../../../utils/api.js');
 const util = require('../../../utils/util.js');
 
@@ -22,7 +23,7 @@ Page({
   onLoad(options) {
     const app = getApp();
     if (!app.checkLogin()) return;
-    // 角色权限控制：仅维修人员可访问
+    // 角色权限控制：仅维修人员/管理员可访问
     if (!util.guardRole('repairer')) return;
     // 支持从首页或其他入口预设 tab（URL 参数优先，其次 Storage）
     const presetTab = (options && options.tab) || wx.getStorageSync('mytasksTab') || '';
@@ -41,7 +42,8 @@ Page({
       this._initialLoad = false;
       return;
     }
-    if (getApp().getRole() === 'repairer') {
+    const role = getApp().getRole();
+    if (role === 'repairer' || role === 'admin') {
       this.loadList(true);
     }
   },
@@ -67,13 +69,17 @@ Page({
     // 今日完成：服务端按 completed 查询，客户端再按日期过滤
     const apiStatus = this.data.tab === 'today_completed' ? 'completed' : this.data.tab;
 
-    api.get('/orders', {
-      assigned_repairer_id: this.getMyId(),
+    // 管理员不传 assigned_repairer_id（查看全部对应状态工单），维修人员只看指派给自己的
+    const params = {
       status: apiStatus,
       completed_today: this.data.tab === 'today_completed' ? 1 : 0,
       page: target,
       pageSize
-    }, { loading: false }).then((res) => {
+    };
+    if (getApp().getRole() !== 'admin') {
+      params.assigned_repairer_id = this.getMyId();
+    }
+    api.get('/orders', params, { loading: false }).then((res) => {
       const rows = util.extractList(res);
 
       this.setData({

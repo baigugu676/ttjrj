@@ -1,4 +1,5 @@
-// 待维修工单池（维修人员）：展示指派给自己的待接单/返修工单，并提供接单或进入返修
+// 待维修工单池（维修人员/管理员）：展示待接单/返修工单，并提供接单或进入返修
+// 维修人员仅看指派给自己的；管理员看全部且不受指派限制
 const api = require('../../../utils/api.js');
 const util = require('../../../utils/util.js');
 
@@ -14,14 +15,15 @@ Page({
   onLoad() {
     const app = getApp();
     if (!app.checkLogin()) return;
-    // 角色权限控制：仅维修人员可访问
+    // 角色权限控制：仅维修人员/管理员可访问
     if (!util.guardRole('repairer')) return;
     // 首次加载交给 onShow（onLoad 后必触发），避免首屏重复请求
   },
 
   onShow() {
     // 从详情返回时刷新（即使列表为空也要刷新，确保新退回的工单能立即显示）
-    if (getApp().getRole() === 'repairer') {
+    const role = getApp().getRole();
+    if (role === 'repairer' || role === 'admin') {
       this.loadList(true);
     }
   },
@@ -37,12 +39,16 @@ Page({
     if (!reset && (!hasMore || loading)) return;
     const target = reset ? 1 : page + 1;
     this.setData({ loading: true });
-    api.get('/orders', {
-      assigned_repairer_id: this.getMyId(),
+    // 管理员不传 assigned_repairer_id（查看全部待接单/返修工单），维修人员只看指派给自己的
+    const params = {
       status: 'pending_repair,repair_returned',
       page: target,
       pageSize
-    }, { loading: false }).then((res) => {
+    };
+    if (getApp().getRole() !== 'admin') {
+      params.assigned_repairer_id = this.getMyId();
+    }
+    api.get('/orders', params, { loading: false }).then((res) => {
       const rows = this.decorate(util.extractList(res));
       this.setData({
         list: reset ? rows : this.data.list.concat(rows),

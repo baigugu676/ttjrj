@@ -17,7 +17,7 @@
  *                                       │                    │
  *                                       └── 重新提交维修 ───┘（维修人员重新提交后直接进入待验收）
  *
- * 权限：所有接口需登录；审核/验收/删除仅 admin；接单/提交维修仅 repairer。
+ * 权限：所有接口需登录；审核/验收/删除仅 admin；接单/提交维修 repairer 或 admin（admin 不受指派限制，接单时改派给自己）。
  * 数据权限：admin 看全部；user 只看自己提交的；repairer 只看指派给自己的。
  * 身份：以微信 OPENID 为唯一可信身份，_token 仅作账号提示（必须与 OPENID 绑定一致才有效）。
  *
@@ -715,19 +715,27 @@ exports.main = async (event) => {
       return ok(null);
     }
 
-    // 维修人员接单
+    // 维修人员接单（admin 也可接单：不受指派限制，接单时改派给自己）
     if (action === 'acceptRepair') {
-      if (user.role !== 'repairer') return fail('无权限执行该操作');
+      if (user.role !== 'repairer' && user.role !== 'admin') return fail('无权限执行该操作');
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
-      if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法接单');
+      if (user.role !== 'admin' && order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法接单');
       if (order.status !== 'pending_repair') {
         return fail(`当前状态为「${statusMap[order.status] || order.status}」，仅待维修工单可以接单`);
       }
-      // 条件更新：防双击重复接单
+      // 条件更新：防双击重复接单；admin 接单时跳过指派条件并把工单改派给自己
+      const where = { _id: order._id, status: 'pending_repair' };
+      const data = { status: 'repairing', updated_at: db.serverDate() };
+      if (user.role === 'admin') {
+        data.assigned_repairer_id = user._id;
+        data.assigned_repairer_name = user.real_name || user.username || '';
+      } else {
+        where.assigned_repairer_id = user._id;
+      }
       const updateRes = await db.collection('work_orders')
-        .where({ _id: order._id, status: 'pending_repair', assigned_repairer_id: user._id })
-        .update({ data: { status: 'repairing', updated_at: db.serverDate() } });
+        .where(where)
+        .update({ data });
       if (!updateRes || !updateRes.stats || updateRes.stats.updated !== 1) {
         return fail('工单状态已变化，请刷新后重试');
       }
@@ -735,9 +743,9 @@ exports.main = async (event) => {
       return ok(null);
     }
 
-    // 维修人员提交维修记录
+    // 维修人员提交维修记录（admin 也可提交，不受指派限制）
     if (action === 'repair') {
-      if (user.role !== 'repairer') return fail('无权限执行该操作');
+      if (user.role !== 'repairer' && user.role !== 'admin') return fail('无权限执行该操作');
       const {
         start_time,
         end_time,
@@ -761,7 +769,7 @@ exports.main = async (event) => {
 
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
-      if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法提交维修记录');
+      if (user.role !== 'admin' && order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法提交维修记录');
       if (!['repairing', 'repair_returned'].includes(order.status)) {
         return fail(`当前状态为「${statusMap[order.status] || order.status}」，仅维修中或退回维修的工单可以提交维修记录`);
       }
