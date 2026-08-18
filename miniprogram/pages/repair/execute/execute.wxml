@@ -129,6 +129,18 @@
     <view class="upload-progress" wx:if="{{uploadProgress}}">{{uploadProgress}}</view>
     <button class="btn btn-ok" bindtap="onSubmit" loading="{{submitting}}">✅ 确认OK上线</button>
   </view>
+
+  <!-- 自绘确认弹窗（不用 wx.showModal，避免系统弹窗冲突导致提交无法开始） -->
+  <view class="confirm-mask" wx:if="{{showConfirm}}" catchtap="onConfirmCancel">
+    <view class="confirm-dialog" catchtap="noop">
+      <view class="confirm-title">确认OK上线</view>
+      <view class="confirm-content">确认设备已修复完成并上线？</view>
+      <view class="confirm-btns">
+        <button class="confirm-btn confirm-cancel" catchtap="onConfirmCancel">取消</button>
+        <button class="confirm-btn confirm-ok" catchtap="onConfirmOk">确认OK上线</button>
+      </view>
+    </view>
+  </view>
 </view>
 
 <view class="empty" wx:elif="{{loadError}}">

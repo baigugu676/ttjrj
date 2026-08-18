@@ -25,7 +25,8 @@ Page({
     repairAction: '',     // 维修措施
     submitting: false,    // 是否提交中
     loadError: false,     // 工单加载失败
-    uploadProgress: ''    // 照片上传进度提示
+    uploadProgress: '',   // 照片上传进度提示
+    showConfirm: false    // 自绘确认弹窗是否显示
   },
 
   onLoad(options) {
@@ -58,7 +59,9 @@ Page({
         title: order.order_no ? ('维修 ' + order.order_no) : '维修执行'
       });
       // 兜底：若工单仍是"待维修"状态（未接单），先自动接单
-      if (order.status === 'pending_repair') {
+      // 仅尝试一次：接单失败后重载详情不再重试，避免失败→重载→再失败的循环
+      if (order.status === 'pending_repair' && !this._autoAccepted) {
+        this._autoAccepted = true;
         await this.autoAcceptRepair();
       }
       // 进入页面自动尝试定位
@@ -70,14 +73,16 @@ Page({
     });
   },
 
-  // 自动接单（await 确保接单完成后再允许提交；失败则提示用户刷新重试）
+  // 自动接单（await 确保接单完成后再允许提交；失败则提示并重载工单状态）
   async autoAcceptRepair() {
     try {
       await api.put('/orders/' + this.data.id + '/accept-repair', {}, { silent: true });
     } catch (err) {
-      // 接单失败：刷新页面状态以确认当前订单是否可操作
+      // 接单失败：重载工单详情以确认当前实际状态（如已被接单/流转），
+      // 避免用户填完表单后提交时才被告知状态不符
       const msg = (err && err.message) || '接单失败';
-      wx.showToast({ title: msg + '，请下拉刷新重试', icon: 'none', duration: 2500 });
+      wx.showToast({ title: msg + '，已刷新工单状态', icon: 'none', duration: 2500 });
+      this.loadOrder();
     }
   },
 
@@ -190,8 +195,8 @@ Page({
 
   // ===== OK上线 =====
   onSubmit() {
-    // 提交进行中禁止重复触发（只拦截，不复位——防止在途请求被二次触发）
-    if (this.data.submitting) return;
+    // 提交进行中或确认弹窗已打开时禁止重复触发（只拦截，不复位——防止在途请求被二次触发）
+    if (this.data.submitting || this.data.showConfirm) return;
     const { beforeImages, afterImages, faultReason, repairAction, gpsLatitude, gpsLongitude } = this.data;
     if (!beforeImages.length) {
       wx.showToast({ title: '请先拍摄维修前照片（至少1张）', icon: 'none' });
@@ -214,25 +219,29 @@ Page({
       return;
     }
 
-    // 延迟弹窗：确保前序 UI 操作完全结束
-    setTimeout(() => {
-      // 弹窗前再次防重（延迟期间可能已触发提交）
-      if (this.data.submitting) return;
-      wx.showModal({
-        title: '确认OK上线',
-        content: '确认设备已修复完成并上线？',
-        confirmText: '确认OK上线',
-        confirmColor: '#07C160',
-        success: (res) => {
-          if (res.confirm) this.submit();
-        },
-        fail: () => {
-          // 弹窗失败（如快速双击导致弹窗冲突）不自动提交，让用户重新点击确认
-          wx.showToast({ title: '请再次点击「确认OK上线」', icon: 'none' });
-        }
-      });
-    }, 200);
+    // 自绘确认弹窗：不再使用 wx.showModal。系统弹窗在开发者工具/部分真机上
+    // 存在弹窗冲突问题（连续调用或与其它系统弹层并存时直接 fail，
+    // 表现为弹窗闪没 + 提示「请再次点击确认OK上线」），提交永远无法开始。
+    // 自绘弹窗完全由页面状态控制，不存在平台弹窗冲突。
+    if (this.data.showConfirm) return;
+    this.setData({ showConfirm: true });
   },
+
+  // 确认弹窗：点「确认OK上线」开始提交
+  onConfirmOk() {
+    if (!this.data.showConfirm) return;
+    this.setData({ showConfirm: false });
+    this.submit();
+  },
+
+  // 确认弹窗：点「取消」或遮罩关闭
+  onConfirmCancel() {
+    if (!this.data.showConfirm) return;
+    this.setData({ showConfirm: false });
+  },
+
+  // 弹窗内容区占位：catchtap 阻止点击冒泡到遮罩（不做任何事）
+  noop() {},
 
   // 提交维修记录
   async submit() {
@@ -254,7 +263,7 @@ Page({
       };
       await this.uploadImages(this.data.beforeImages, 'repair_before', tick);
       await this.uploadImages(this.data.afterImages, 'repair_after', tick);
-      // 2. 提交维修记录
+      // 2. 提交维修记录（云函数冷启动+多次写库+通知扇出可能较慢，超时放宽到 20 秒）
       await api.put('/orders/' + this.data.id + '/repair', {
         start_time: this.data.repairDate + ' ' + this.data.repairTime,
         gps_latitude: this.data.gpsLatitude,
@@ -262,7 +271,7 @@ Page({
         location_address: this.data.locationAddress.trim() || this.data.gpsText,
         fault_reason: this.data.faultReason.trim(),
         repair_action: this.data.repairAction.trim()
-      }, { loading: false, silent: true });
+      }, { loading: false, silent: true, timeoutMs: 20000 });
       wx.hideLoading();
       wx.showToast({ title: 'OK上线成功', icon: 'success' });
       setTimeout(() => {
