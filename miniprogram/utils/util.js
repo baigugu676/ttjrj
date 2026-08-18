@@ -293,13 +293,11 @@ function extractList(res) {
 
 /**
  * 页面角色守卫：角色不符时提示并跳回首页 tab，返回 false。
- * admin 拥有全部权限，可通过任何角色守卫。
  * 用法：if (!util.guardRole('admin')) return;
  */
 function guardRole(role) {
   const app = getApp();
-  const r = app && app.getRole && app.getRole();
-  if (r === role || r === 'admin') return true;
+  if (app && app.getRole && app.getRole() === role) return true;
   wx.showToast({ title: '仅' + getRoleText(role) + '可访问', icon: 'none' });
   setTimeout(() => {
     wx.switchTab({ url: '/pages/index/index' });

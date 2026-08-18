@@ -113,18 +113,13 @@ Page({
       }
       getApp().refreshUnreadBadge();
     }
-    // 跳转工单详情：按角色分流，管理员可审核/验收也可维修（待接单/返修类通知直接进入维修执行页），维修人员按通知类型进入维修执行/详情
+    // 跳转工单详情：按角色分流，管理员进入可审核/验收的管理端详情，维修人员按通知类型进入维修执行/详情
     if (orderId) {
       const role = getApp().getRole();
       const item = this.data.list[index] || {};
       const type = item.type;
       if (role === 'admin') {
-        // 待接单（执行页会自动接单）与验收退回 → 直接进入维修执行页
-        if (type === 'order_approved' || type === 'order_returned') {
-          wx.navigateTo({ url: '/pages/repair/execute/execute?id=' + orderId });
-        } else {
-          wx.navigateTo({ url: '/pages/admin/order-detail/order-detail?id=' + orderId });
-        }
+        wx.navigateTo({ url: '/pages/admin/order-detail/order-detail?id=' + orderId });
       } else if (role === 'repairer') {
         // 新指派（待接单，执行页会自动接单）与验收退回 → 直接进入维修执行页
         if (type === 'order_approved' || type === 'order_returned') {
