@@ -68,9 +68,12 @@ exports.main = async (event) => {
   try {
     const usersCount = await db.collection('users').count();
     if ((usersCount.total || 0) > 0) {
-      const { OPENID } = cloud.getWXContext();
-      const res = await db.collection('users').where({ openid: OPENID || '' }).limit(1).get();
-      const u = res.data[0];
+      const token = event && event._token ? String(event._token) : '';
+      if (!token) {
+        return { code: 1, message: '仅管理员可执行初始化' };
+      }
+      const res = await db.collection('users').doc(token).get();
+      const u = res.data;
       if (!u || u.role !== 'admin' || u.status !== 'active') {
         return { code: 1, message: '仅管理员可执行初始化' };
       }

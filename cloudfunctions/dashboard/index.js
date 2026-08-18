@@ -1,7 +1,7 @@
 /**
  * 首页聚合数据云函数（微信云开发）
  * 与 orders 云函数的 dashboard action 保持同一口径（今日完成=今日验收通过、点位启用=非 inactive）。
- * 身份：以微信 OPENID 为唯一可信身份，_token 仅作账号提示（必须与 OPENID 绑定一致才有效）。
+ * 身份：_token 为唯一身份凭据，权限由角色（role）决定，不再使用 openid 判断权限。
  */
 const cloud = require('wx-server-sdk');
 
@@ -26,31 +26,20 @@ const DISABLED_USER = { __disabled: true };
 
 /**
  * 获取当前登录用户。
- * 安全约束：微信 OPENID 是唯一可信身份。_token（裸用户 _id）仅作账号提示，
- * 必须与当前微信 OPENID 绑定的用户一致才生效，否则回落 OPENID 查询——防止
- * 客户端伪造他人 _id 提权。
+ * 身份以 _token（登录返回的用户 _id）为唯一凭据，权限由该用户的角色（role）决定，
+ * 不再以 openid 作为身份识别或权限判断依据。
  */
 async function getCurrentUser(event) {
-  const { OPENID } = cloud.getWXContext();
-  if (!OPENID) return null;
   const token = event && event._token ? String(event._token) : '';
-  if (token) {
-    try {
-      const byToken = await db.collection('users').doc(token).get();
-      if (byToken.data) {
-        const u = byToken.data;
-        if (u.openid === OPENID) {
-          return u.status === 'disabled' ? DISABLED_USER : u;
-        }
-      }
-    } catch (e) {
-      // Token may be stale; fall back to the caller's OpenID.
-    }
+  if (!token) return null;
+  try {
+    const byToken = await db.collection('users').doc(token).get();
+    const u = byToken.data;
+    if (!u) return null;
+    return u.status === 'disabled' ? DISABLED_USER : u;
+  } catch (e) {
+    return null;
   }
-  const res = await db.collection('users').where({ openid: OPENID }).limit(1).get();
-  const u = res.data[0] || null;
-  if (!u) return null;
-  return u.status === 'disabled' ? DISABLED_USER : u;
 }
 
 /**
