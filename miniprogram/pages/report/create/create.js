@@ -3,11 +3,19 @@
 //   1. 先 POST /api/orders 创建工单，拿到工单 id
 //   2. 再逐张上传照片（image_type=report，携带 order_id），由后端写入 order_images 表
 //   3. 全部完成 → 跳转列表页
+// 免审核规则：admin 报修需当场选择维修人员；repairer 报修自动指派本人；
+//            二者提交后工单直接进入待维修（跳过审核）。
 const api = require('../../../utils/api.js');
 const util = require('../../../utils/util.js');
 
 Page({
   data: {
+    role: '',             // 当前角色（user/repairer/admin）
+    isAdmin: false,       // 管理员：需选择指派维修人员
+    isRepairer: false,    // 维修人员：免审核，自动指派本人
+    repairers: [],        // 可指派的维修人员列表（仅 admin 使用）
+    repairerNames: [],    // 维修人员姓名（picker 展示用）
+    repairerIndex: -1,    // 选中维修人员下标
     locations: [],        // 点位列表（来自 /api/locations）
     filteredLocations: [], // 当前搜索结果
     locationKeyword: '',  // 点位搜索关键词
@@ -24,7 +32,14 @@ Page({
   onLoad() {
     const app = getApp();
     if (!app.checkLogin()) return;
+    const role = (app.getUserInfo() && app.getUserInfo().role) || 'user';
+    this.setData({
+      role,
+      isAdmin: role === 'admin',
+      isRepairer: role === 'repairer'
+    });
     this.loadLocations();
+    if (role === 'admin') this.loadRepairers();
   },
 
   onPullDownRefresh() {
@@ -45,6 +60,21 @@ Page({
       console.error('[create] 加载点位列表失败:', err);
       wx.showToast({ title: '点位列表加载失败，请下拉页面后重试', icon: 'none' });
     });
+  },
+
+  // 加载维修人员列表（管理员报修免审核，提交时需当场指派）
+  loadRepairers() {
+    api.get('/users', { role: 'repairer', page: 1, pageSize: 100 }, { loading: false }).then((res) => {
+      const list = Array.isArray(res) ? res : ((res && res.list) || []);
+      this.setData({
+        repairers: list,
+        repairerNames: list.map((u) => u.real_name || u.username || ('维修员' + u.id))
+      });
+    }).catch((err) => { console.error('[create] 加载维修人员列表失败:', err); });
+  },
+
+  onRepairerChange(e) {
+    this.setData({ repairerIndex: Number(e.detail.value) });
   },
 
   onLocationChange(e) {
@@ -142,14 +172,24 @@ Page({
       return;
     }
 
-    this.setData({ submitting: true, uploadProgress: 0 });
-    wx.showLoading({ title: '正在提交...', mask: true });
-
-    api.post('/orders', {
+    // 管理员报修免审核：必须当场指派维修人员
+    const payload = {
       location_id: locationId,
       fault_description: description.trim(),
       repair_requirements: requirements.trim() || null
-    }, { loading: false, silent: true }).then((res) => {
+    };
+    if (this.data.isAdmin) {
+      if (this.data.repairerIndex < 0) {
+        wx.showToast({ title: '请选择指派的维修人员', icon: 'none' });
+        return;
+      }
+      payload.assigned_repairer_id = this.data.repairers[this.data.repairerIndex].id;
+    }
+
+    this.setData({ submitting: true, uploadProgress: 0 });
+    wx.showLoading({ title: '正在提交...', mask: true });
+
+    api.post('/orders', payload, { loading: false, silent: true }).then((res) => {
       const orderId = res && (res.id || res.order_id);
       if (!orderId) {
         throw new Error('创建工单失败');
@@ -166,15 +206,15 @@ Page({
           showCancel: false,
           confirmText: '知道了',
           success: () => {
-            wx.setStorageSync('listStatus', 'pending_review');
+            wx.setStorageSync('listStatus', this.skipReviewStatus());
             wx.switchTab({ url: '/pages/report/list/list' });
           }
         });
         return;
       }
-      wx.showToast({ title: '报修提交成功', icon: 'success' });
+      wx.showToast({ title: this.data.isAdmin || this.data.isRepairer ? '已生成维修任务' : '报修提交成功', icon: 'success' });
       setTimeout(() => {
-        wx.setStorageSync('listStatus', 'pending_review');
+        wx.setStorageSync('listStatus', this.skipReviewStatus());
         wx.switchTab({ url: '/pages/report/list/list' });
       }, 1200);
     }).catch((err) => {
@@ -182,6 +222,11 @@ Page({
       this.setData({ submitting: false });
       wx.showToast({ title: (err && err.message) || '提交失败，请重试', icon: 'none' });
     });
+  },
+
+  // 提交成功后工单列表的预设筛选状态（仅报修用户消费；admin/repairer 走工单tab重定向，不留残余参数）
+  skipReviewStatus() {
+    return this.data.isAdmin || this.data.isRepairer ? '' : 'pending_review';
   },
 
   // 上传全部照片（携带 order_id 与 image_type=report），返回失败张数（不阻断工单提交流程）

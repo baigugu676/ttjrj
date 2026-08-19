@@ -2,6 +2,15 @@
 .form-card {
   margin-top: 24rpx;
 }
+.skip-hint {
+  padding: 16rpx 20rpx;
+  margin-bottom: 8rpx;
+  border-radius: 8rpx;
+  background: #eef8ff;
+  color: #1677FF;
+  font-size: 24rpx;
+  line-height: 1.5;
+}
 .location-search {
   height: 76rpx;
   box-sizing: border-box;

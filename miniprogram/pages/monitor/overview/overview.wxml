@@ -16,10 +16,14 @@
       </view>
     </view>
 
-    <!-- 状态分布柱状图 -->
+    <!-- 状态分布柱状图（点击柱子可跳转对应状态的设备列表） -->
     <view class="chart-card">
       <view class="chart-head"><text>启用监控 {{overview.total || 0}} 台</text><text>状态分布</text></view>
-      <view class="chart-wrap"><canvas canvas-id="monitorBars" class="chart" width="320" height="180"></canvas></view>
+      <view class="chart-wrap">
+        <canvas canvas-id="monitorBars" class="chart" width="320" height="180"
+          bindtouchstart="onBarsTouchStart" bindtouchend="onBarsTouchEnd"></canvas>
+      </view>
+      <view class="chart-tip" wx:if="{{overview.total}}">👆 点击柱状图可查看对应状态的设备</view>
       <view wx:if="{{!overview.total}}" class="state empty-state">暂无启用监控</view>
     </view>
 

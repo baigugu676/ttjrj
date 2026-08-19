@@ -23,7 +23,8 @@
  *
  * 入参（action）：
  *   list          { status?, reporter_id?, assigned_repairer_id?, keyword?, completed_today?, page?, pageSize? }
- *   create        { location_id, fault_description, repair_requirements? }
+ *   create        { location_id, fault_description, repair_requirements?, assigned_repairer_id? }
+ *                 免审核规则：admin 报修需指派维修人员、repairer 报修指派本人，二者直接进入 pending_repair（跳过审核）
  *   detail        { id }
  *   review        { id, review_action: 'approve'|'reject', assigned_repairer_id?, review_comment?, reject_reason? }
  *   acceptRepair  { id }
@@ -368,24 +369,32 @@ function todayPrefix() {
   return `WO${bj.getUTCFullYear()}${p(bj.getUTCMonth() + 1)}${p(bj.getUTCDate())}`;
 }
 
-// 生成工单号：WO + 年月日 + 4位自增序号（固定 4 位，避免位数不同导致字典序错乱）
-async function generateOrderNo() {
+/**
+ * 计算当天工单号的最大尾部数字（含日期部分的完整尾数，如 202608190012，兼容旧 3 位序号）。
+ * 不依赖 orderBy 查最大：旧实现「正则 + orderBy + limit(1)」拿到尾部完整数字后 +1，
+ * 再叠加日期前缀并把 >9999 一律钳到 9999，导致当天有工单后每次都生成同一个
+ * 「WO202608199999」撞号、反复报「工单号生成冲突」。
+ * 改为分页拉全量后在内存中取数值最大值。maxDigits 为 0 表示当天还没有工单。
+ */
+async function getMaxOrderNoDigits() {
   const prefix = todayPrefix();
-  // 转义 regex 特殊字符，防止前缀中意外出现正则关键字
   const escaped = prefix.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
-  const res = await db.collection('work_orders')
-    .where({ order_no: db.RegExp({ regexp: '^' + escaped }) })
-    .orderBy('order_no', 'desc')
-    .limit(1)
-    .get();
-  let seq = 1;
-  if (res.data.length) {
-    // 解析尾部完整数字（兼容旧 3 位序号），避免 slice(-3) 在 1000+ 时回绕
-    const m = String(res.data[0].order_no).match(/(\d+)$/);
-    if (m) seq = parseInt(m[1], 10) + 1;
-  }
-  if (seq > 9999) seq = 9999; // 溢出保护
-  return `${prefix}${String(seq).padStart(4, '0')}`;
+  const rows = await fetchAll(
+    db.collection('work_orders')
+      .where({ order_no: db.RegExp({ regexp: '^' + escaped }) })
+      .field({ order_no: true })
+  );
+  let maxDigits = 0;
+  rows.forEach((row) => {
+    const m = String(row.order_no || '').match(/(\d+)$/);
+    if (m) maxDigits = Math.max(maxDigits, parseInt(m[1], 10));
+  });
+  return { prefix, maxDigits };
+}
+
+// 工单号：WO + 完整尾数（尾数已含日期部分，如 202608190013 → WO202608190013）
+function orderNoFromDigits(digits) {
+  return `WO${String(digits).padStart(4, '0')}`;
 }
 
 // ---------------- 通知 ----------------
@@ -423,6 +432,23 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       await Promise.all(admins.map((adminId) =>
         sendNotification(adminId, orderId, orderNo, 'order_submitted', '新工单待审核',
           `收到来自「${locationName}」的故障报修工单 ${orderNo}，请及时审核。`)
+      ));
+      break;
+    }
+    case 'direct_assigned': {
+      // 管理员报修免审核：直接指派维修人员，通知其接单
+      if (repairerId) {
+        await sendNotification(repairerId, orderId, orderNo, 'order_approved', '新工单待接单',
+          `管理员为您直接指派了工单 ${orderNo}（${locationName}），免审核，请及时接单处理。`);
+      }
+      break;
+    }
+    case 'repairer_submitted': {
+      // 维修人员报修免审核：已指派本人维修，通知管理员知悉（无需审核）
+      const admins = await getAdminIds();
+      await Promise.all(admins.map((adminId) =>
+        sendNotification(adminId, orderId, orderNo, 'order_submitted', '维修人员上报新工单',
+          `维修人员上报了故障工单 ${orderNo}（${locationName}），免审核，已指派本人维修。`)
       ));
       break;
     }
@@ -567,7 +593,7 @@ exports.main = async (event) => {
 
     // 创建工单
     if (action === 'create') {
-      const { location_id, fault_description, repair_requirements = null } = event;
+      const { location_id, fault_description, repair_requirements = null, assigned_repairer_id } = event;
       if (!location_id) return fail('请选择故障点位');
       if (!fault_description || String(fault_description).trim().length < 5) {
         return fail('故障描述至少 5 个字');
@@ -578,11 +604,34 @@ exports.main = async (event) => {
       } catch (e) { /* 点位不存在 */ }
       if (!loc || loc.status !== 'active') return fail('故障点位不存在或已停用');
 
-      // 工单号并发保护：插入后检查唯一性，冲突则删除重试
+      // 免审核角色：admin/repairer 报修跳过 pending_review，直接生成维修任务（pending_repair）。
+      // admin 报修时必须当场指派维修人员；repairer 报修时自动指派给本人。
+      let assignedRepairer = null;
+      let skipReview = false;
+      if (user.role === 'admin') {
+        skipReview = true;
+        if (!assigned_repairer_id) return fail('管理员报修免审核，请选择指派的维修人员');
+        try {
+          assignedRepairer = (await db.collection('users').doc(assigned_repairer_id).get()).data;
+        } catch (e) { /* 不存在 */ }
+        if (!assignedRepairer || assignedRepairer.role !== 'repairer') return fail('指定的维修人员不存在或角色不正确');
+        if (assignedRepairer.status !== 'active') return fail('指定的维修人员已被禁用');
+      } else if (user.role === 'repairer') {
+        skipReview = true;
+        assignedRepairer = user;
+      }
+
+      // 工单号并发保护：先算出当天最大序号，插入后检查唯一性，撞号则递增+抖动重试。
+      // 重试时直接递增而不是重新查最大：并发双方各自删除撞号记录后重新查最大会得到
+      // 同一个旧号，形成锁步互撞直到重试耗尽；递增+随机抖动可打破这种死锁。
+      const { prefix, maxDigits } = await getMaxOrderNoDigits();
+      // 尾数含日期部分：当天无工单时以「日期*10000+1」起步（如 20260819 → WO202608190001）
+      const todayDigits = parseInt(String(prefix).replace(/^WO/, ''), 10) * 10000;
+      let nextDigits = maxDigits > 0 ? maxDigits + 1 : todayDigits + 1;
       let add = null;
       let orderNo = '';
-      for (let attempt = 0; attempt < 3 && !add; attempt++) {
-        orderNo = await generateOrderNo();
+      for (let attempt = 0; attempt < 5 && !add; attempt++) {
+        orderNo = orderNoFromDigits(nextDigits);
         const candidate = await db.collection('work_orders').add({
           data: {
             order_no: orderNo,
@@ -594,14 +643,17 @@ exports.main = async (event) => {
             location_device_type: loc.device_type || '',
             fault_description: String(fault_description).trim(),
             repair_requirements,
-            status: 'pending_review',
-            assigned_repairer_id: '',
-            assigned_repairer_name: '',
-            reviewer_id: '',
-            reviewer_name: '',
-            review_comment: '',
+            status: skipReview ? 'pending_repair' : 'pending_review',
+            assigned_repairer_id: assignedRepairer ? assignedRepairer._id : '',
+            assigned_repairer_name: assignedRepairer ? (assignedRepairer.real_name || assignedRepairer.username || '') : '',
+            reviewer_id: skipReview && user.role === 'admin' ? user._id : '',
+            reviewer_name: skipReview && user.role === 'admin' ? (user.real_name || user.username || '') : '',
+            review_comment: skipReview
+              ? (user.role === 'admin' ? '免审核直接派单' : '免审核（维修人员上报，指派本人）')
+              : '',
             reject_reason: '',
-            reviewed_at: null,
+            reviewed_at: skipReview && user.role === 'admin' ? db.serverDate() : null,
+            skip_review: skipReview,
             created_at: db.serverDate(),
             updated_at: db.serverDate()
           }
@@ -610,12 +662,24 @@ exports.main = async (event) => {
         if (dupRes.total <= 1) {
           add = candidate;
         } else {
-          // 并发下与他人撞号：删除本次插入，重新生成
+          // 撞号：删除本次插入；重新拉取一次当天最大号（规避读延迟导致的旧最大值），
+          // 取「递增后的序号」与「新最大值+1」中较大者，再加随机抖动后重试（打破并发锁步互撞）
+          console.warn('[orders] 工单号撞号，删除并重试:', { attempt, orderNo, dup: dupRes.total });
           await db.collection('work_orders').doc(candidate._id).remove().catch(() => {});
+          const fresh = await getMaxOrderNoDigits().catch(() => null);
+          const freshMax = fresh && fresh.maxDigits > 0 ? fresh.maxDigits + 1 : 0;
+          nextDigits = Math.max(nextDigits + 1, freshMax) + Math.floor(Math.random() * 5);
         }
       }
       if (!add) return fail('工单号生成冲突，请稍后重试');
-      await safeNotify(add._id, 'submitted', orderNo, loc.name);
+      // 通知：user 报修 → 管理员审核；admin 报修 → 被指派的维修人员；repairer 报修 → 管理员知悉（免审核）
+      if (user.role === 'admin') {
+        await safeNotify(add._id, 'direct_assigned', orderNo, loc.name);
+      } else if (user.role === 'repairer') {
+        await safeNotify(add._id, 'repairer_submitted', orderNo, loc.name);
+      } else {
+        await safeNotify(add._id, 'submitted', orderNo, loc.name);
+      }
       return ok({ id: add._id, order_no: orderNo });
     }
 

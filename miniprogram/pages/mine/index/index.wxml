@@ -43,6 +43,11 @@
 
     <!-- 维修人员 -->
     <block wx:elif="{{role === 'repairer'}}">
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/create/create">
+        <text class="menu-icon">➕</text>
+        <text class="menu-text">上报故障（免审核）</text>
+        <text class="arrow">›</text>
+      </view>
       <view class="menu-item" bindtap="goPage" data-url="/pages/repair/mytasks/mytasks">
         <text class="menu-icon">🔧</text>
         <text class="menu-text">维修记录</text>
@@ -57,6 +62,11 @@
 
     <!-- 管理员 -->
     <block wx:else>
+      <view class="menu-item" bindtap="goPage" data-url="/pages/report/create/create">
+        <text class="menu-icon">➕</text>
+        <text class="menu-text">新建报修（免审核）</text>
+        <text class="arrow">›</text>
+      </view>
       <view class="menu-item" bindtap="goPage" data-url="/pages/admin/orders/orders">
         <text class="menu-icon">🗂️</text>
         <text class="menu-text">工单管理</text>

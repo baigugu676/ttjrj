@@ -37,6 +37,17 @@ test('buildTimelineSteps 反映已完成和驳回状态', () => {
   assert.equal(rejected[1].desc, '信息不完整');
 });
 
+test('buildTimelineSteps 免审核工单显示「免审核」步骤', () => {
+  const steps = util.buildTimelineSteps({
+    status: 'pending_repair', order_no: 'WO20260819001', created_at: '2026-08-19T01:00:00Z',
+    skip_review: true, review_comment: '免审核直接派单'
+  });
+  assert.equal(steps[1].title, '免审核');
+  assert.equal(steps[1].status, 'done');
+  assert.equal(steps[1].desc, '免审核直接派单');
+  assert.equal(steps[2].title, '维修接单');
+});
+
 test('监控状态与百分比辅助函数返回稳定文案', () => {
   assert.equal(util.getMonitorStatusText('normal'), '正常');
   assert.equal(util.getMonitorStatusColor('fault'), '#ef4444');

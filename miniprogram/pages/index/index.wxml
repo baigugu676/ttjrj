@@ -44,6 +44,7 @@
     <view class="hero">
       <view class="hero-title">您好，{{userInfo.real_name || userInfo.username || '维修人员'}}</view>
       <view class="hero-sub">待接单、维修中，一手掌握</view>
+      <button class="btn btn-light new-btn" bindtap="goCreate">➕ 上报故障</button>
     </view>
 
     <view class="stats">
@@ -96,6 +97,7 @@
     <view class="hero">
       <view class="hero-title">您好，{{userInfo.real_name || userInfo.username || '管理员'}}</view>
       <view class="hero-sub">工单审核、验收、统计一览</view>
+      <button class="btn btn-light new-btn" bindtap="goCreate">➕ 新建报修</button>
     </view>
 
     <view class="stats">

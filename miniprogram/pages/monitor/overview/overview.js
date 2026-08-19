@@ -1,6 +1,9 @@
 const api = require('../../../utils/api.js');
 const util = require('../../../utils/util.js');
 
+// 柱状图绘制几何参数（绘制与点击命中共用同一份，避免两处不一致）
+const BARS_GEOMETRY = { width: 320, height: 180, left: 34, right: 12, top: 20, bottom: 38 };
+
 Page({
   data: { overview: null, normalRateText: '0%', loading: true, error: '' },
 
@@ -19,10 +22,18 @@ Page({
         setTimeout(() => {
           this.drawDonutChart();
           this.drawMonitorBars();
+          this.measureBarsCanvas();
         }, 0);
       })
       .catch(() => this.setData({ overview: null, error: '监控状态加载失败，请重试' }))
       .finally(() => this.setData({ loading: false }));
+  },
+
+  /** 测量柱状图 canvas 的 CSS 渲染尺寸（用于把触点坐标换算回 320x180 逻辑坐标系） */
+  measureBarsCanvas() {
+    wx.createSelectorQuery().in(this).select('.chart').boundingClientRect((rect) => {
+      this._barsRect = (rect && rect.width && rect.height) ? rect : null;
+    }).exec();
   },
 
   retry() { this.load(); },
@@ -81,8 +92,8 @@ Page({
     const overview = this.data.overview;
     if (!overview) return;
     const ctx = wx.createCanvasContext('monitorBars', this);
-    const width = 320; const height = 180;
-    const chart = { left: 34, right: 12, top: 20, bottom: 38 };
+    const { width, height, left, right, top, bottom } = BARS_GEOMETRY;
+    const chart = { left, right, top, bottom };
     const chartWidth = width - chart.left - chart.right;
     const chartHeight = height - chart.top - chart.bottom;
     const segments = Array.isArray(overview.segments) ? overview.segments : [];
@@ -120,6 +131,44 @@ Page({
       ctx.fillText(item.label || '', x + barWidth / 2, height - 15);
     });
     ctx.draw();
+  },
+
+  // ===== 柱状图点击：按状态跳转监控设备列表（正常/故障中/维修中） =====
+  onBarsTouchStart(e) {
+    const t = (e.touches && e.touches[0]) || null;
+    this._barsTouchStart = t ? { x: t.x, y: t.y } : null;
+  },
+
+  onBarsTouchEnd(e) {
+    const t = (e.changedTouches && e.changedTouches[0]) || null;
+    const start = this._barsTouchStart;
+    this._barsTouchStart = null;
+    if (!t || !start) return;
+    // 位移过大视为滑动（如滚动页面），不触发跳转
+    if (Math.abs(t.x - start.x) + Math.abs(t.y - start.y) > 12) return;
+    this.tapMonitorBar(t.x, t.y);
+  },
+
+  tapMonitorBar(touchX, touchY) {
+    const rect = this._barsRect;
+    const overview = this.data.overview;
+    // 画布尺寸尚未测量成功（首帧布局未完成）时补测一次，本次点击忽略
+    if (!rect) { this.measureBarsCanvas(); return; }
+    if (!overview) return;
+    const segments = Array.isArray(overview.segments) ? overview.segments : [];
+    if (!segments.length) return;
+
+    // 触点（CSS 像素）→ 320x180 逻辑坐标
+    const { width, height, left, right, top, bottom } = BARS_GEOMETRY;
+    const lx = touchX * width / rect.width;
+    const ly = touchY * height / rect.height;
+    // 仅图表区域内的点击有效
+    if (lx < left || lx > width - right || ly < top || ly > height - bottom) return;
+
+    const groupWidth = (width - left - right) / segments.length;
+    const seg = segments[Math.floor((lx - left) / groupWidth)];
+    if (!seg || !seg.key) return;
+    wx.navigateTo({ url: '/pages/monitor/list/list?status=' + seg.key });
   },
 
   openMonitorList() { wx.navigateTo({ url: '/pages/monitor/list/list' }); }

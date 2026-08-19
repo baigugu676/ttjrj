@@ -201,25 +201,35 @@ function buildTimelineSteps(order) {
     desc: order.order_no ? '工单号：' + order.order_no : ''
   });
 
-  // 2. 审核环节
-  const reviewDone = ['pending_repair', 'repairing', 'pending_accept', 'completed'].indexOf(s) >= 0;
-  if (s === 'rejected') {
-    // 审核驳回，流程终止
+  // 2. 审核环节（admin/repairer 上报的免审核工单直接显示「免审核」步骤）
+  if (order.skip_review) {
     steps.push({
-      title: '审核驳回',
-      time: t(order.reviewed_at),
-      status: 'reject',
+      title: '免审核',
+      time: t(order.reviewed_at || order.created_at),
+      status: 'done',
       active: false,
-      desc: order.reject_reason || ''
+      desc: order.review_comment || '免审核直接派单'
     });
-    return steps;
+  } else {
+    const reviewDone = ['pending_repair', 'repairing', 'pending_accept', 'completed'].indexOf(s) >= 0;
+    if (s === 'rejected') {
+      // 审核驳回，流程终止
+      steps.push({
+        title: '审核驳回',
+        time: t(order.reviewed_at),
+        status: 'reject',
+        active: false,
+        desc: order.reject_reason || ''
+      });
+      return steps;
+    }
+    steps.push({
+      title: '审核通过',
+      time: t(order.reviewed_at),
+      status: reviewDone ? 'done' : 'current',
+      active: s === 'pending_review'
+    });
   }
-  steps.push({
-    title: '审核通过',
-    time: t(order.reviewed_at),
-    status: reviewDone ? 'done' : 'current',
-    active: s === 'pending_review'
-  });
 
   // 3. 接单环节
   const acceptDone = ['repairing', 'pending_accept', 'completed'].indexOf(s) >= 0;
