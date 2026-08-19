@@ -930,14 +930,18 @@ exports.main = async (event) => {
       const validTypes = ['report', 'repair_before', 'repair_after'];
       const type = validTypes.includes(image_type) ? image_type : 'report';
 
-      // 归属与角色校验：user 仅能给自己报修的工单传报修图；repairer 仅能给指派给自己的工单传维修前后图
+      // 归属与角色校验：user 仅能给自己报修的工单传报修图；
+      // repairer 兼具两种身份——作为报修人（自己上报故障）可传报修图，作为被指派的维修方可传维修前后图
       if (user.role === 'user') {
         if (order.reporter_id !== user._id) return fail('无权操作该工单');
         if (type !== 'report') return fail('报修用户仅可上传报修照片');
       } else if (user.role === 'repairer') {
-        if (order.assigned_repairer_id !== user._id) return fail('无权操作该工单');
-        if (type === 'report') return fail('维修人员仅可上传维修前后照片');
-        if (['completed', 'rejected'].includes(order.status)) return fail('工单已结束，无法上传维修照片');
+        const isReporter = order.reporter_id === user._id;
+        const isAssigned = order.assigned_repairer_id === user._id;
+        if (!isReporter && !isAssigned) return fail('无权操作该工单');
+        if (type === 'report' && !isReporter) return fail('维修人员仅可上传维修前后照片');
+        if (type !== 'report' && !isAssigned) return fail('无权操作该工单');
+        if (type !== 'report' && ['completed', 'rejected'].includes(order.status)) return fail('工单已结束，无法上传维修照片');
       }
       // admin 不受限（可补充证据照片）
 
