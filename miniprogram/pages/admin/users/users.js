@@ -26,7 +26,12 @@ Page({
       { value: 'repairer', label: '维修人员' },
       { value: 'admin', label: '管理员' }
     ],
-    form: { id: '', username: '', password: '', real_name: '', phone: '', roleIndex: 0 }
+    // 维修人员分类（仅 role=repairer 时展示）
+    repairTypeOptions: [
+      { value: 'equipment', label: '器材维修' },
+      { value: 'network', label: '网络维修' }
+    ],
+    form: { id: '', username: '', password: '', real_name: '', phone: '', roleIndex: 0, repairTypeIndex: 0 }
   },
 
   onLoad() {
@@ -97,6 +102,7 @@ Page({
   decorate(rows) {
     return rows.map((u) => Object.assign({}, u, {
       role_text: util.getRoleText(u.role),
+      repair_type_text: u.role === 'repairer' ? util.getRepairTypeText(u.repair_type) : '',
       initial: (u.real_name || u.username || '用')[0],
       avatar_url: u.avatar_url ? util.resolveImageUrl(u.avatar_url) : u.avatar_url,
       avatar: u.avatar ? util.resolveImageUrl(u.avatar) : u.avatar
@@ -116,7 +122,7 @@ Page({
     this.setData({
       showModal: true,
       modalTitle: '添加用户',
-      form: { id: '', username: '', password: '', real_name: '', phone: '', roleIndex: 0 }
+      form: { id: '', username: '', password: '', real_name: '', phone: '', roleIndex: 0, repairTypeIndex: 0 }
     });
   },
 
@@ -125,6 +131,7 @@ Page({
     const user = this.data.list.find((u) => u.id === id);
     if (!user) return;
     const roleIndex = Math.max(0, this.data.roleOptions.findIndex((r) => r.value === user.role));
+    const repairTypeIndex = Math.max(0, this.data.repairTypeOptions.findIndex((r) => r.value === (user.repair_type || 'equipment')));
     this.setData({
       showModal: true,
       modalTitle: '编辑用户',
@@ -134,7 +141,8 @@ Page({
         password: '',
         real_name: user.real_name || '',
         phone: user.phone || '',
-        roleIndex
+        roleIndex,
+        repairTypeIndex
       }
     });
   },
@@ -146,6 +154,10 @@ Page({
 
   onRoleChange(e) {
     this.setData({ 'form.roleIndex': Number(e.detail.value) });
+  },
+
+  onRepairTypeChange(e) {
+    this.setData({ 'form.repairTypeIndex': Number(e.detail.value) });
   },
 
   closeModal() {
@@ -175,6 +187,10 @@ Page({
       phone: form.phone.trim(),
       role
     };
+    // 维修人员需要携带维修分类（器材/网络）
+    if (role === 'repairer') {
+      data.repair_type = this.data.repairTypeOptions[form.repairTypeIndex].value;
+    }
     // 编辑时密码留空表示不修改
     if (form.password) data.password = form.password;
 

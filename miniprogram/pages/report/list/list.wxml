@@ -10,7 +10,7 @@
 
   <!-- 工单列表 -->
   <view class="list">
-    <order-card wx:for="{{list}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+    <order-card wx:for="{{list}}" wx:key="id" order="{{item}}" bind:select="goDetail" />
     <view class="empty" wx:if="{{!list.length && !loading}}">暂无工单数据</view>
     <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
   </view>

@@ -10,8 +10,8 @@ const db = cloud.database();
 const _ = db.command;
 const $ = db.command.aggregate;
 
-const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
-const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
+const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'suspended', 'pending_accept', 'repair_returned'];
+const REPAIRING_STATUSES = ['repairing', 'suspended', 'pending_accept', 'repair_returned'];
 
 function ok(data) {
   return { code: 0, message: 'success', data };
@@ -211,6 +211,7 @@ async function repairerDashboard(user) {
     stats: {
       pendingAccept: (counts.pending_repair || 0) + (counts.repair_returned || 0),
       repairing: counts.repairing || 0,
+      suspended: counts.suspended || 0,
       todayCompleted
     },
     poolOrders: (pool.data || []).map((order) => ({ ...order, id: order._id })),

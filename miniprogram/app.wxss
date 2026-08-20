@@ -161,6 +161,10 @@ page {
   color: #10AEFF;
   background: rgba(16, 174, 255, 0.12);
 }
+.status-tag.suspended {
+  color: #909399;
+  background: rgba(144, 147, 153, 0.14);
+}
 .status-tag.pending_accept {
   color: #8A6FF8;
   background: rgba(138, 111, 248, 0.12);

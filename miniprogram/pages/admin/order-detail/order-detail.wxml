@@ -16,6 +16,7 @@
     <view class="info-row"><text class="label">报修人</text><text class="value">{{reporterName}}</text></view>
     <view class="info-row"><text class="label">联系电话</text><text class="value">{{order.reporter_phone || '-'}}</text></view>
     <view class="info-row"><text class="label">故障描述</text><text class="value">{{order.fault_description}}</text></view>
+    <view class="info-row" wx:if="{{order.fault_cause}}"><text class="label">故障原因</text><text class="value">{{order.fault_cause}}</text></view>
     <view class="info-row" wx:if="{{order.repair_requirements}}"><text class="label">维修要求</text><text class="value">{{order.repair_requirements}}</text></view>
     <view class="info-row"><text class="label">提交时间</text><text class="value">{{order.created_at_text}}</text></view>
     <view class="photo-grid" wx:if="{{reportImages.length}}">
@@ -32,7 +33,8 @@
     <view class="info-row" wx:if="{{order.review_comment}}"><text class="label">审核意见</text><text class="value">{{order.review_comment}}</text></view>
     <view class="info-row" wx:if="{{order.reject_reason}}"><text class="label">驳回原因</text><text class="value">{{order.reject_reason}}</text></view>
     <view class="info-row" wx:if="{{order.assigned_repairer_name}}">
-      <text class="label">指派维修</text><text class="value">{{order.assigned_repairer_name}}</text>
+      <text class="label">指派维修</text>
+      <text class="value">{{order.assigned_repairer_name}}{{order.assigned_repairer_type_text ? '（' + order.assigned_repairer_type_text + '）' : ''}}</text>
     </view>
   </view>
 

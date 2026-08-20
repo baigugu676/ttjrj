@@ -96,6 +96,7 @@ router.get('/status-distribution', async (req, res, next) => {
       pending_review: '待审核',
       pending_repair: '待维修',
       repairing: '维修中',
+      suspended: '已挂起',
       pending_accept: '待验收',
       completed: '已完成',
       rejected: '已驳回',

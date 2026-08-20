@@ -89,6 +89,10 @@
   border-radius: 6rpx;
   margin-left: 12rpx;
 }
+.role-tag.repair {
+  color: #1677FF;
+  background: rgba(22, 119, 255, 0.12);
+}
 .u-sub {
   font-size: 24rpx;
   color: #999999;

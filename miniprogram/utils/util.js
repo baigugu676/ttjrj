@@ -15,6 +15,7 @@ const STATUS_MAP = {
   pending_review:  { text: '待审核', color: '#FF9500' },   // 橙色
   pending_repair:  { text: '待维修', color: '#1677FF' },   // 蓝色
   repairing:       { text: '维修中', color: '#10AEFF' },   // 青色
+  suspended:       { text: '已挂起', color: '#909399' },   // 灰色
   pending_accept:  { text: '待验收', color: '#8A6FF8' },   // 紫色
   completed:       { text: '已完成', color: '#07C160' },   // 绿色
   rejected:        { text: '已驳回', color: '#FA5151' },   // 红色
@@ -27,6 +28,39 @@ const ROLE_MAP = {
   user: '报修用户',
   repairer: '维修人员'
 };
+
+// 维修人员分类：器材维修 / 网络维修（监控故障可能是设备问题，也可能是网络问题）
+const REPAIR_TYPE_MAP = {
+  equipment: '器材维修',
+  network: '网络维修'
+};
+
+// 报修时可选填的故障原因（约10个常用选项，便于管理员快速定位并分派对应维修人员）
+const FAULT_CAUSE_OPTIONS = [
+  '摄像头无图像/黑屏',
+  '摄像头图像模糊',
+  '摄像头损坏/外力破坏',
+  '电源故障/无法供电',
+  '网络故障/无法连接',
+  '线路故障/线缆损坏',
+  '存储/录像异常',
+  '云台/转动异常',
+  '报警器误报/失效',
+  '其他设备故障'
+];
+
+// 维修类型转中文（未设置显示「未分类」）
+function getRepairTypeText(type) {
+  return REPAIR_TYPE_MAP[type] || '未分类';
+}
+
+// 维修人员选项展示文案（姓名 + 分类）
+function getRepairerLabel(repairer) {
+  if (!repairer) return '';
+  const name = repairer.real_name || repairer.username || ('维修员' + repairer.id);
+  const type = repairer.repair_type ? ' · ' + getRepairTypeText(repairer.repair_type) : '';
+  return name + type;
+}
 
 const MONITOR_STATUS_MAP = {
   normal: { text: '正常', color: '#16a34a' },
@@ -211,7 +245,7 @@ function buildTimelineSteps(order) {
       desc: order.review_comment || '免审核直接派单'
     });
   } else {
-    const reviewDone = ['pending_repair', 'repairing', 'pending_accept', 'completed'].indexOf(s) >= 0;
+    const reviewDone = ['pending_repair', 'repairing', 'suspended', 'pending_accept', 'completed'].indexOf(s) >= 0;
     if (s === 'rejected') {
       // 审核驳回，流程终止
       steps.push({
@@ -232,7 +266,7 @@ function buildTimelineSteps(order) {
   }
 
   // 3. 接单环节
-  const acceptDone = ['repairing', 'pending_accept', 'completed'].indexOf(s) >= 0;
+  const acceptDone = ['repairing', 'suspended', 'pending_accept', 'completed'].indexOf(s) >= 0;
   steps.push({
     title: '维修接单',
     time: t(repair.created_at || repair.start_time),
@@ -245,8 +279,8 @@ function buildTimelineSteps(order) {
   steps.push({
     title: '维修完成',
     time: t(repair.end_time || repair.updated_at),
-    status: repairDone ? 'done' : (s === 'repairing' ? 'current' : 'todo'),
-    active: s === 'repairing',
+    status: repairDone ? 'done' : ((s === 'repairing' || s === 'suspended') ? 'current' : 'todo'),
+    active: s === 'repairing' || s === 'suspended',
     desc: repair.repair_action || ''
   });
 
@@ -318,12 +352,16 @@ function guardRole(role) {
 module.exports = {
   STATUS_MAP,
   ROLE_MAP,
+  REPAIR_TYPE_MAP,
+  FAULT_CAUSE_OPTIONS,
   MONITOR_STATUS_MAP,
   MONITOR_ACTION_MAP,
   formatTime,
   getStatusText,
   getStatusColor,
   getRoleText,
+  getRepairTypeText,
+  getRepairerLabel,
   getMonitorStatusText,
   getMonitorStatusColor,
   getMonitorActionText,

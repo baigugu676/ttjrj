@@ -64,7 +64,7 @@ router.post('/login', async (req, res, next) => {
 
     // 查询用户
     const [rows] = await pool.query(
-      `SELECT id, username, password_hash, real_name, role, phone, avatar_url, status
+      `SELECT id, username, password_hash, real_name, role, phone, avatar_url, repair_type, status
        FROM users WHERE username = ?`,
       [username]
     );
@@ -117,7 +117,7 @@ router.post('/login', async (req, res, next) => {
 router.get('/me', auth, async (req, res, next) => {
   try {
     const [rows] = await pool.query(
-      `SELECT id, username, real_name, role, phone, avatar_url, status, created_at
+      `SELECT id, username, real_name, role, phone, avatar_url, repair_type, status, created_at
        FROM users WHERE id = ?`,
       [req.user.id]
     );

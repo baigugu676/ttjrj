@@ -121,8 +121,8 @@ Page({
       if (role === 'admin') {
         wx.navigateTo({ url: '/pages/admin/order-detail/order-detail?id=' + orderId });
       } else if (role === 'repairer') {
-        // 新指派（待接单，执行页会自动接单）与验收退回 → 直接进入维修执行页
-        if (type === 'order_approved' || type === 'order_returned') {
+        // 新指派/转交（待接单，执行页会自动接单）与验收退回 → 直接进入维修执行页
+        if (type === 'order_approved' || type === 'order_transferred' || type === 'order_returned') {
           wx.navigateTo({ url: '/pages/repair/execute/execute?id=' + orderId });
         } else {
           wx.navigateTo({ url: '/pages/report/detail/detail?id=' + orderId });

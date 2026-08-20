@@ -45,9 +45,11 @@ Component({
   },
 
   methods: {
-    // 点击卡片，向上抛出 tap 事件（携带工单 id）
+    // 点击卡片，向上抛出 select 事件（携带工单 id）。
+    // 事件名不用原生 tap：避免 triggerEvent('tap') 与原生 tap 冒泡同时触发父级 bind:tap，
+    // 导致一次点击被处理两次（第二次 e.detail.id 为空，跳转出错误详情页）。
     onTap() {
-      this.triggerEvent('tap', { id: this.data.order.id });
+      this.triggerEvent('select', { id: this.data.order.id });
     }
   }
 });

@@ -19,6 +19,7 @@ const COLLECTIONS = [
   'order_images',
   'repair_records',
   'acceptance_records',
+  'transfer_records',
   'notifications'
 ];
 

@@ -23,6 +23,7 @@
         <view class="u-name">
           {{item.real_name || item.username || '未知用户'}}
           <text class="role-tag">{{item.role_text}}</text>
+          <text class="role-tag repair" wx:if="{{item.repair_type_text}}">{{item.repair_type_text}}</text>
         </view>
         <view class="u-sub">{{item.username}} · {{item.status === 'disabled' ? '已禁用' : '正常'}}</view>
       </view>
@@ -66,6 +67,13 @@
       <text class="form-label">角色 <text class="form-required">*</text></text>
       <picker range="{{roleOptions}}" range-key="label" value="{{form.roleIndex}}" bindchange="onRoleChange">
         <view class="form-input picker">{{roleOptions[form.roleIndex].label}} ▾</view>
+      </picker>
+    </view>
+    <!-- 维修人员分类（仅角色为维修人员时显示） -->
+    <view class="form-item" wx:if="{{roleOptions[form.roleIndex].value === 'repairer'}}">
+      <text class="form-label">维修分类 <text class="form-required">*</text></text>
+      <picker range="{{repairTypeOptions}}" range-key="label" value="{{form.repairTypeIndex}}" bindchange="onRepairTypeChange">
+        <view class="form-input picker">{{repairTypeOptions[form.repairTypeIndex].label}} ▾</view>
       </picker>
     </view>
     <view class="modal-btns">

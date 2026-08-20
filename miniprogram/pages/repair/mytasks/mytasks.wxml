@@ -14,15 +14,55 @@
 
   <view class="list">
     <view class="task-item" wx:for="{{list}}" wx:key="id">
-      <order-card order="{{item}}" bind:tap="goDetail" />
-      <button class="btn btn-primary enter-btn" wx:if="{{tab === 'repairing' || tab === 'repair_returned'}}" bindtap="goExecute" data-id="{{item.id}}">
-        进入维修
-      </button>
-      <button class="btn btn-view enter-btn" wx:elif="{{tab === 'today_completed' || tab === 'completed'}}" bindtap="goDetailById" data-id="{{item.id}}">
-        查看详情
-      </button>
+      <order-card order="{{item}}" bind:select="goDetail" />
+      <view class="task-ops">
+        <!-- 维修中：进入维修 / 转交 / 挂起 -->
+        <block wx:if="{{tab === 'repairing'}}">
+          <button class="btn btn-primary op-btn-sm" bindtap="goExecute" data-id="{{item.id}}">进入维修</button>
+          <button class="btn btn-view op-btn-sm" bindtap="openTransfer" data-id="{{item.id}}">转交</button>
+          <button class="btn btn-warn op-btn-sm" bindtap="doSuspend" data-id="{{item.id}}">挂起</button>
+        </block>
+        <!-- 退回返修：进入维修 / 转交 -->
+        <block wx:elif="{{tab === 'repair_returned'}}">
+          <button class="btn btn-primary op-btn-sm" bindtap="goExecute" data-id="{{item.id}}">进入维修</button>
+          <button class="btn btn-view op-btn-sm" bindtap="openTransfer" data-id="{{item.id}}">转交</button>
+        </block>
+        <!-- 挂起：恢复维修 / 转交 / 查看详情 -->
+        <block wx:elif="{{tab === 'suspended'}}">
+          <button class="btn btn-primary op-btn-sm" bindtap="doResume" data-id="{{item.id}}">恢复维修</button>
+          <button class="btn btn-view op-btn-sm" bindtap="openTransfer" data-id="{{item.id}}">转交</button>
+          <button class="btn btn-view op-btn-sm" bindtap="goDetailById" data-id="{{item.id}}">查看详情</button>
+        </block>
+        <!-- 已完成 / 今日完成：查看详情 -->
+        <block wx:elif="{{tab === 'today_completed' || tab === 'completed'}}">
+          <button class="btn btn-view op-btn-sm" bindtap="goDetailById" data-id="{{item.id}}">查看详情</button>
+        </block>
+      </view>
     </view>
     <view class="empty" wx:if="{{!list.length && !loading}}">暂无相关工单</view>
     <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+
+  <!-- 转交弹窗 -->
+  <view class="mask" wx:if="{{showTransfer}}" bindtap="closeTransfer"></view>
+  <view class="modal" wx:if="{{showTransfer}}">
+    <view class="modal-title">转交工单</view>
+    <view class="form-item">
+      <text class="form-label">接收维修人员 <text class="form-required">*</text></text>
+      <picker range="{{repairerNames}}" value="{{transferIndex}}" bindchange="onTransferRepairerChange">
+        <view class="form-input picker {{transferIndex < 0 ? 'placeholder' : ''}}">
+          {{transferIndex < 0 ? (repairerNames.length ? '请选择维修人员' : '暂无其他维修人员') : repairerNames[transferIndex]}} ▾
+        </view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="form-label">转交原因（选填）</text>
+      <textarea class="form-textarea" placeholder="说明转交原因，便于对方接手..." maxlength="200"
+        value="{{transferReason}}" bindinput="onTransferReasonInput"></textarea>
+    </view>
+    <view class="modal-btns">
+      <button class="btn btn-default modal-btn" bindtap="closeTransfer">取消</button>
+      <button class="btn btn-primary modal-btn" bindtap="confirmTransfer" loading="{{transfering}}">确认转交</button>
+    </view>
   </view>
 </view>

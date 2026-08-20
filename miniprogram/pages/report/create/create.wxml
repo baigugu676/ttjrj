@@ -34,6 +34,14 @@
       <view class="char-count">{{description.length}}/500</view>
     </view>
 
+    <!-- 故障原因（选填，便于管理员分派器材/网络维修人员） -->
+    <view class="form-item">
+      <text class="form-label">故障原因（选填）</text>
+      <picker range="{{faultCauses}}" value="{{faultCauseIndex}}" bindchange="onFaultCauseChange">
+        <view class="form-input picker">{{faultCauses[faultCauseIndex]}} ▾</view>
+      </picker>
+    </view>
+
     <!-- 现场照片 -->
     <view class="form-item">
       <text class="form-label">现场照片（最多9张）</text>

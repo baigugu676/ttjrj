@@ -39,6 +39,7 @@ const statusMap = {
   pending_review: '待审核',
   pending_repair: '待维修',
   repairing: '维修中',
+  suspended: '已挂起',
   pending_accept: '待验收',
   completed: '已完成',
   rejected: '已驳回',
@@ -68,7 +69,7 @@ router.post('/', [
       return res.json({ code: 1, message: errors.array()[0].msg });
     }
 
-    const { location_id, fault_description, repair_requirements = null } = req.body;
+    const { location_id, fault_description, repair_requirements = null, fault_cause = null } = req.body;
 
     // 校验点位存在，同时取出点位名称用于通知
     const [locRows] = await pool.query(
@@ -86,9 +87,9 @@ router.post('/', [
       orderNo = await generateOrderNo();
       try {
         const [result] = await pool.query(
-          `INSERT INTO work_orders (order_no, reporter_id, location_id, fault_description, repair_requirements, status)
-           VALUES (?, ?, ?, ?, ?, 'pending_review')`,
-          [orderNo, req.user.id, location_id, fault_description, repair_requirements]
+          `INSERT INTO work_orders (order_no, reporter_id, location_id, fault_description, fault_cause, repair_requirements, status)
+           VALUES (?, ?, ?, ?, ?, ?, 'pending_review')`,
+          [orderNo, req.user.id, location_id, fault_description, fault_cause || null, repair_requirements]
         );
         insertedOrderId = result.insertId;
         break;
@@ -249,7 +250,7 @@ router.get('/export', requireRole('admin'), async (req, res, next) => {
 
     const [rows] = await pool.query(
       `SELECT wo.order_no, l.name AS location_name, l.area AS location_area,
-              l.device_type AS location_device_type, wo.fault_description,
+              l.device_type AS location_device_type, wo.fault_description, wo.fault_cause,
               ur.real_name AS reporter_name, uw.real_name AS repairer_name,
               wo.status, wo.created_at, wo.updated_at
        FROM work_orders wo
@@ -261,7 +262,7 @@ router.get('/export', requireRole('admin'), async (req, res, next) => {
       params
     );
 
-    const header = ['工单号', '点位名称', '区域', '设备类型', '故障描述', '报修人', '维修人员', '状态', '创建时间', '更新时间'];
+    const header = ['工单号', '点位名称', '区域', '设备类型', '故障描述', '故障原因', '报修人', '维修人员', '状态', '创建时间', '更新时间'];
     const esc = (v) => {
       const s = v === null || v === undefined ? '' : String(v);
       // 防 CSV 公式注入：以 = + - @ 等开头的单元格会被 Excel 当公式执行，前置单引号中和
@@ -274,7 +275,7 @@ router.get('/export', requireRole('admin'), async (req, res, next) => {
     rows.forEach((o) => {
       lines.push([
         o.order_no, o.location_name, o.location_area, o.location_device_type,
-        o.fault_description, o.reporter_name, o.repairer_name,
+        o.fault_description, o.fault_cause, o.reporter_name, o.repairer_name,
         statusMap[o.status] || o.status, fmtTime(o.created_at), fmtTime(o.updated_at)
       ].map(esc).join(','));
     });
@@ -356,10 +357,21 @@ router.get('/:id', async (req, res, next) => {
       [id]
     );
 
+    // 转交记录
+    const [transferRecords] = await pool.query(
+      `SELECT tr.*, fu.real_name AS from_repairer_name, tu.real_name AS to_repairer_name
+       FROM transfer_records tr
+       LEFT JOIN users fu ON fu.id = tr.from_repairer_id
+       LEFT JOIN users tu ON tu.id = tr.to_repairer_id
+       WHERE tr.order_id = ?
+       ORDER BY tr.created_at ASC`,
+      [id]
+    );
+
     res.json({
       code: 0,
       message: 'success',
-      data: { ...order, images, repair_records: repairRecords, acceptance_records: acceptanceRecords }
+      data: { ...order, images, repair_records: repairRecords, acceptance_records: acceptanceRecords, transfer_records: transferRecords }
     });
   } catch (err) {
     next(err);
@@ -517,6 +529,147 @@ router.put('/:id/accept-repair', requireRole('repairer'), async (req, res, next)
       console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
     }
 
+    res.json({ code: 0, message: 'success', data: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /api/orders/:id/transfer — 维修人员转交工单给另一位维修人员
+ * body: { target_repairer_id, reason? }
+ * 可转交状态：pending_repair / repairing / suspended / repair_returned
+ */
+router.put('/:id/transfer', requireRole('repairer'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.json({ code: 1, message: '工单ID不合法' });
+    }
+    const { target_repairer_id, reason = '' } = req.body || {};
+    if (!target_repairer_id) {
+      return res.json({ code: 1, message: '请选择要转交的维修人员' });
+    }
+
+    const [orders] = await pool.query(
+      `SELECT wo.*, l.name AS location_name
+       FROM work_orders wo
+       LEFT JOIN locations l ON wo.location_id = l.id
+       WHERE wo.id = ? FOR UPDATE`,
+      [id]
+    );
+    if (orders.length === 0) return res.json({ code: 1, message: '工单不存在' });
+    const order = orders[0];
+
+    if (order.assigned_repairer_id !== req.user.id) {
+      return res.json({ code: 1, message: '该工单未指派给您，无法转交' });
+    }
+    if (!['pending_repair', 'repairing', 'suspended', 'repair_returned'].includes(order.status)) {
+      return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，无法转交` });
+    }
+    if (Number(target_repairer_id) === Number(req.user.id)) {
+      return res.json({ code: 1, message: '不能转交给本人' });
+    }
+
+    const [targets] = await pool.query(
+      `SELECT id, real_name, repair_type, status FROM users WHERE id = ? AND role = 'repairer'`,
+      [target_repairer_id]
+    );
+    if (targets.length === 0) {
+      return res.json({ code: 1, message: '指定的维修人员不存在或角色不正确' });
+    }
+    if (targets[0].status !== 'active') {
+      return res.json({ code: 1, message: '指定的维修人员已被禁用' });
+    }
+    const target = targets[0];
+
+    const [updateRes] = await pool.query(
+      `UPDATE work_orders SET assigned_repairer_id = ? WHERE id = ? AND assigned_repairer_id = ? AND status = ?`,
+      [target.id, id, req.user.id, order.status]
+    );
+    if (updateRes.affectedRows === 0) {
+      return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+    }
+    await pool.query(
+      `INSERT INTO transfer_records (order_id, from_repairer_id, to_repairer_id, reason)
+       VALUES (?, ?, ?, ?)`,
+      [id, req.user.id, target.id, reason || null]
+    );
+    try {
+      await notifyOrderStatusChange(id, 'transferred', order.order_no, order.location_name);
+    } catch (notifyErr) {
+      console.warn('[orders] 通知发送失败（不影响业务）:', notifyErr);
+    }
+    res.json({ code: 0, message: 'success', data: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /api/orders/:id/suspend — 维修人员挂起工单（当天未修完，稍后继续）
+ * body: { reason? }  仅 repairing 状态可挂起
+ */
+router.put('/:id/suspend', requireRole('repairer'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.json({ code: 1, message: '工单ID不合法' });
+    }
+    const [orders] = await pool.query(
+      `SELECT id, assigned_repairer_id, status FROM work_orders WHERE id = ?`,
+      [id]
+    );
+    if (orders.length === 0) return res.json({ code: 1, message: '工单不存在' });
+    const order = orders[0];
+    if (order.assigned_repairer_id !== req.user.id) {
+      return res.json({ code: 1, message: '该工单未指派给您，无法挂起' });
+    }
+    if (order.status !== 'repairing') {
+      return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，仅维修中的工单可以挂起` });
+    }
+    const [updateRes] = await pool.query(
+      `UPDATE work_orders SET status = 'suspended' WHERE id = ? AND status = 'repairing' AND assigned_repairer_id = ?`,
+      [id, req.user.id]
+    );
+    if (updateRes.affectedRows === 0) {
+      return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+    }
+    res.json({ code: 0, message: 'success', data: null });
+  } catch (err) {
+    next(err);
+  }
+});
+
+/**
+ * PUT /api/orders/:id/resume — 维修人员恢复挂起的工单继续维修
+ * 仅 suspended 状态可恢复 → repairing
+ */
+router.put('/:id/resume', requireRole('repairer'), async (req, res, next) => {
+  try {
+    const id = Number(req.params.id);
+    if (!Number.isInteger(id) || id <= 0) {
+      return res.json({ code: 1, message: '工单ID不合法' });
+    }
+    const [orders] = await pool.query(
+      `SELECT id, assigned_repairer_id, status FROM work_orders WHERE id = ?`,
+      [id]
+    );
+    if (orders.length === 0) return res.json({ code: 1, message: '工单不存在' });
+    const order = orders[0];
+    if (order.assigned_repairer_id !== req.user.id) {
+      return res.json({ code: 1, message: '该工单未指派给您，无法恢复' });
+    }
+    if (order.status !== 'suspended') {
+      return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，仅挂起的工单可以恢复` });
+    }
+    const [updateRes] = await pool.query(
+      `UPDATE work_orders SET status = 'repairing' WHERE id = ? AND status = 'suspended' AND assigned_repairer_id = ?`,
+      [id, req.user.id]
+    );
+    if (updateRes.affectedRows === 0) {
+      return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
+    }
     res.json({ code: 0, message: 'success', data: null });
   } catch (err) {
     next(err);

@@ -11,6 +11,7 @@ Page({
       { label: '待审核', value: 'pending_review' },
       { label: '待维修', value: 'pending_repair' },
       { label: '维修中', value: 'repairing' },
+      { label: '挂起', value: 'suspended' },
       { label: '待验收', value: 'pending_accept' },
       { label: '已完成', value: 'completed' }
     ],

@@ -42,6 +42,8 @@ Page({
       const accept = util.getAcceptanceRecord(order);
       order.created_at_text = util.formatTime(order.created_at || order.createdAt);
       order.reviewed_at_text = util.formatTime(order.reviewed_at);
+      order.assigned_repairer_type_text = order.assigned_repairer_type
+        ? util.getRepairTypeText(order.assigned_repairer_type) : '';
       if (repair) {
         repair.start_time_text = util.formatTime(repair.start_time);
         repair.end_time_text = util.formatTime(repair.end_time);
@@ -73,7 +75,7 @@ Page({
       const list = Array.isArray(res) ? res : ((res && res.list) || []);
       this.setData({
         repairers: list,
-        repairerNames: list.map((u) => u.real_name || u.username || ('维修员' + u.id))
+        repairerNames: list.map((u) => util.getRepairerLabel(u))
       });
     }).catch((err) => { console.error('[order-detail] 加载维修人员列表失败:', err); });
   },

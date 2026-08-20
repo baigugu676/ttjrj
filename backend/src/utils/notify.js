@@ -122,6 +122,14 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       }
       break;
     }
+    case 'transferred': {
+      // 转交 → 通知接手工单的维修人员（此刻 assigned_repairer_id 已是接手人）
+      if (repairerId) {
+        await sendNotification(repairerId, orderId, 'order_transferred', '新工单转交给您',
+          `工单 ${orderNo}（${locationName}）已转交给您处理，请及时接单维修。`);
+      }
+      break;
+    }
     default:
       break;
   }

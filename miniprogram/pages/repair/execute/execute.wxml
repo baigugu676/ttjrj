@@ -16,6 +16,10 @@
       <text class="label">故障描述</text>
       <text class="value">{{order.fault_description}}</text>
     </view>
+    <view class="info-row" wx:if="{{order.fault_cause}}">
+      <text class="label">故障原因</text>
+      <text class="value">{{order.fault_cause}}</text>
+    </view>
     <view class="info-row" wx:if="{{order.repair_requirements}}">
       <text class="label">维修要求</text>
       <text class="value">{{order.repair_requirements}}</text>

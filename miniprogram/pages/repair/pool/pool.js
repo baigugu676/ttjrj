@@ -8,7 +8,15 @@ Page({
     page: 1,
     pageSize: 10,
     hasMore: true,
-    loading: false
+    loading: false,
+    // 转交弹窗
+    showTransfer: false,
+    repairers: [],
+    repairerNames: [],
+    transferIndex: -1,
+    transferOrderId: '',
+    transferReason: '',
+    transfering: false
   },
 
   onLoad() {
@@ -16,6 +24,7 @@ Page({
     if (!app.checkLogin()) return;
     // 角色权限控制：仅维修人员可访问
     if (!util.guardRole('repairer')) return;
+    this.loadRepairers();
     // 首次加载交给 onShow（onLoad 后必触发），避免首屏重复请求
   },
 
@@ -30,6 +39,21 @@ Page({
     const app = getApp();
     const info = app.getUserInfo() || {};
     return info.id;
+  },
+
+  // 加载可转交的维修人员（排除本人）
+  loadRepairers() {
+    api.getRepairerOptions({ loading: false, silent: true }).then((res) => {
+      const list = util.extractList(res);
+      const myId = this.getMyId();
+      const others = list.filter((u) => String(u.id) !== String(myId));
+      this.setData({
+        repairers: others,
+        repairerNames: others.map((u) => util.getRepairerLabel(u))
+      });
+    }).catch((err) => {
+      console.error('[pool] 加载维修人员列表失败:', err);
+    });
   },
 
   loadList(reset) {
@@ -107,5 +131,62 @@ Page({
         });
       }
     });
-  }
+  },
+
+  // ===== 转交 =====
+  openTransfer(e) {
+    const id = e.currentTarget.dataset.id;
+    if (!id) return;
+    if (!this.data.repairers.length) {
+      this.loadRepairers();
+      wx.showToast({ title: '暂无其他维修人员可转交', icon: 'none' });
+      return;
+    }
+    this.setData({
+      showTransfer: true,
+      transferOrderId: id,
+      transferIndex: -1,
+      transferReason: ''
+    });
+  },
+
+  closeTransfer() {
+    if (this.data.transfering) return;
+    this.setData({ showTransfer: false, transferIndex: -1, transferReason: '' });
+  },
+
+  onTransferRepairerChange(e) {
+    this.setData({ transferIndex: Number(e.detail.value) });
+  },
+
+  onTransferReasonInput(e) {
+    this.setData({ transferReason: e.detail.value });
+  },
+
+  confirmTransfer() {
+    const { transferIndex, repairers, transferOrderId, transferReason, transfering } = this.data;
+    if (transfering) return;
+    if (transferIndex < 0) {
+      wx.showToast({ title: '请选择接收的维修人员', icon: 'none' });
+      return;
+    }
+    const target = repairers[transferIndex];
+    if (!target || !target.id) {
+      wx.showToast({ title: '请重新选择维修人员', icon: 'none' });
+      return;
+    }
+    this.setData({ transfering: true });
+    api.put('/orders/' + transferOrderId + '/transfer', {
+      target_repairer_id: target.id,
+      reason: transferReason.trim()
+    }, { silent: true }).then(() => {
+      wx.showToast({ title: '转交成功', icon: 'success' });
+      this.setData({ showTransfer: false, transferIndex: -1, transferReason: '' });
+      this.loadList(true);
+    }).catch((err) => {
+      wx.showToast({ title: (err && err.message) || '转交失败，请重试', icon: 'none' });
+    }).finally(() => this.setData({ transfering: false }));
+  },
+
+  noop() {}
 });

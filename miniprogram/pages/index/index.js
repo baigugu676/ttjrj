@@ -189,6 +189,12 @@ Page({
     wx.navigateTo({ url: '/pages/repair/mytasks/mytasks' });
   },
 
+  // 维修人员：挂起工单（跳转 mytasks 并预设 suspended tab）
+  goMyTasksSuspended() {
+    wx.setStorageSync('mytasksTab', 'suspended');
+    wx.navigateTo({ url: '/pages/repair/mytasks/mytasks' });
+  },
+
   // 管理员：工单管理（按状态筛选）
   goAdminOrders(e) {
     const status = (e.currentTarget.dataset && e.currentTarget.dataset.status) || '';

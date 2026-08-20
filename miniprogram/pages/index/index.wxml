@@ -34,7 +34,7 @@
         <text class="section-title">最近报修</text>
         <text class="more" bindtap="goList">全部 ›</text>
       </view>
-      <order-card wx:for="{{recentOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <order-card wx:for="{{recentOrders}}" wx:key="id" order="{{item}}" bind:select="goDetail" />
       <view class="empty" wx:if="{{!recentOrders.length && !loading}}">暂无报修记录，点击「新建报修」发起第一条吧</view>
     </view>
   </block>
@@ -55,6 +55,10 @@
       <view class="stat-item" bindtap="goMyTasks">
         <view class="num">{{stats.repairing || 0}}</view>
         <view class="label">维修中</view>
+      </view>
+      <view class="stat-item" bindtap="goMyTasksSuspended">
+        <view class="num">{{stats.suspended || 0}}</view>
+        <view class="label">挂起</view>
       </view>
       <view class="stat-item" bindtap="goMyTasksToday">
         <view class="num">{{stats.todayCompleted || 0}}</view>
@@ -78,7 +82,7 @@
         <text class="section-title">待处理工单</text>
         <text class="more" bindtap="goPool">进入工单池 ›</text>
       </view>
-      <order-card wx:for="{{poolOrders}}" wx:key="id" order="{{item}}" compact-status="{{true}}" bind:tap="goDetail" />
+      <order-card wx:for="{{poolOrders}}" wx:key="id" order="{{item}}" compact-status="{{true}}" bind:select="goDetail" />
       <view class="empty" wx:if="{{!poolOrders.length && !loading}}">暂无可接的工单</view>
     </view>
 
@@ -87,7 +91,7 @@
         <text class="section-title">维修中工单</text>
         <text class="more" bindtap="goMyTasks">全部 ›</text>
       </view>
-      <order-card wx:for="{{repairingOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <order-card wx:for="{{repairingOrders}}" wx:key="id" order="{{item}}" bind:select="goDetail" />
       <view class="empty" wx:if="{{!repairingOrders.length && !loading}}">暂无维修中的工单</view>
     </view>
   </block>
@@ -177,7 +181,7 @@
         <text class="section-title">最新工单动态</text>
         <text class="more" bindtap="goAdminOrders">全部 ›</text>
       </view>
-      <order-card wx:for="{{latestOrders}}" wx:key="id" order="{{item}}" bind:tap="goDetail" />
+      <order-card wx:for="{{latestOrders}}" wx:key="id" order="{{item}}" bind:select="goDetail" />
       <view class="empty" wx:if="{{!latestOrders.length && !loading}}">暂无工单</view>
     </view>
   </block>

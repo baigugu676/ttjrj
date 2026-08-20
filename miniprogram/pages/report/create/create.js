@@ -23,6 +23,8 @@ Page({
     locationIndex: -1,    // 当前选中点位下标
     locationId: '',       // 选中点位 id
     description: '',      // 故障描述
+    faultCauses: ['不指定'].concat(util.FAULT_CAUSE_OPTIONS), // 故障原因选项（选填）
+    faultCauseIndex: 0,   // 默认「不指定」
     requirements: '',     // 维修要求（选填）
     images: [],           // 已选图片 [{ tempPath }]
     submitting: false,    // 是否正在提交
@@ -68,7 +70,7 @@ Page({
       const list = Array.isArray(res) ? res : ((res && res.list) || []);
       this.setData({
         repairers: list,
-        repairerNames: list.map((u) => u.real_name || u.username || ('维修员' + u.id))
+        repairerNames: list.map((u) => util.getRepairerLabel(u))
       });
     }).catch((err) => { console.error('[create] 加载维修人员列表失败:', err); });
   },
@@ -118,6 +120,10 @@ Page({
 
   onReqInput(e) {
     this.setData({ requirements: e.detail.value });
+  },
+
+  onFaultCauseChange(e) {
+    this.setData({ faultCauseIndex: Number(e.detail.value) });
   },
 
   // 选择图片（拍照 + 相册），仅暂存本地路径，提交时统一上传
@@ -173,9 +179,13 @@ Page({
     }
 
     // 管理员报修免审核：必须当场指派维修人员
+    const faultCause = this.data.faultCauseIndex > 0
+      ? this.data.faultCauses[this.data.faultCauseIndex]
+      : '';
     const payload = {
       location_id: locationId,
       fault_description: description.trim(),
+      fault_cause: faultCause,
       repair_requirements: requirements.trim() || null
     };
     if (this.data.isAdmin) {

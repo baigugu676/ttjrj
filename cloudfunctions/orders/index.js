@@ -48,14 +48,17 @@ const statusMap = {
   pending_review: '待审核',
   pending_repair: '待维修',
   repairing: '维修中',
+  suspended: '已挂起',
   pending_accept: '待验收',
   completed: '已完成',
   rejected: '已驳回',
   repair_returned: '退回维修'
 };
 
-const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
-const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
+const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'suspended', 'pending_accept', 'repair_returned'];
+const REPAIRING_STATUSES = ['repairing', 'suspended', 'pending_accept', 'repair_returned'];
+// 可转交的状态：待接单 / 维修中 / 挂起 / 退回返修
+const TRANSFERABLE_STATUSES = ['pending_repair', 'repairing', 'suspended', 'repair_returned'];
 
 // 账号被禁用的哨兵值：与「未登录」区分，返回更明确的中文提示
 const DISABLED_USER = { __disabled: true };
@@ -328,6 +331,7 @@ async function getDashboard(user) {
       stats: {
         pendingAccept: (counts.pending_repair || 0) + (counts.repair_returned || 0),
         repairing: counts.repairing || 0,
+        suspended: counts.suspended || 0,
         todayCompleted
       },
       poolOrders: (poolRes.data || []).map(toOrderSummary),
@@ -498,6 +502,14 @@ async function notifyOrderStatusChange(orderId, action, orderNo, locationName, e
       }
       break;
     }
+    case 'transferred': {
+      // 转交：通知接手工单的维修人员（此刻 assigned_repairer_id 已是接手人）
+      if (repairerId) {
+        await sendNotification(repairerId, orderId, orderNo, 'order_transferred', '新工单转交给您',
+          `工单 ${orderNo}（${locationName}）已转交给您处理，请及时接单维修。`);
+      }
+      break;
+    }
     default:
       break;
   }
@@ -593,11 +605,12 @@ exports.main = async (event) => {
 
     // 创建工单
     if (action === 'create') {
-      const { location_id, fault_description, repair_requirements = null, assigned_repairer_id } = event;
+      const { location_id, fault_description, repair_requirements = null, assigned_repairer_id, fault_cause = '' } = event;
       if (!location_id) return fail('请选择故障点位');
       if (!fault_description || String(fault_description).trim().length < 5) {
         return fail('故障描述至少 5 个字');
       }
+      const faultCause = fault_cause ? String(fault_cause).trim() : '';
       let loc = null;
       try {
         loc = (await db.collection('locations').doc(location_id).get()).data;
@@ -642,10 +655,12 @@ exports.main = async (event) => {
             location_area: loc.area || '',
             location_device_type: loc.device_type || '',
             fault_description: String(fault_description).trim(),
+            fault_cause: faultCause,
             repair_requirements,
             status: skipReview ? 'pending_repair' : 'pending_review',
             assigned_repairer_id: assignedRepairer ? assignedRepairer._id : '',
             assigned_repairer_name: assignedRepairer ? (assignedRepairer.real_name || assignedRepairer.username || '') : '',
+            assigned_repairer_type: assignedRepairer ? (assignedRepairer.repair_type || '') : '',
             reviewer_id: skipReview && user.role === 'admin' ? user._id : '',
             reviewer_name: skipReview && user.role === 'admin' ? (user.real_name || user.username || '') : '',
             review_comment: skipReview
@@ -690,10 +705,11 @@ exports.main = async (event) => {
       if (user.role === 'user' && order.reporter_id !== user._id) return fail('无权查看该工单');
       if (user.role === 'repairer' && order.assigned_repairer_id !== user._id) return fail('无权查看该工单');
 
-      const [imagesRes, repairRes, acceptRes] = await Promise.all([
+      const [imagesRes, repairRes, acceptRes, transferRes] = await Promise.all([
         db.collection('order_images').where({ order_id: order._id }).orderBy('sort_order', 'asc').limit(1000).get(),
         db.collection('repair_records').where({ order_id: order._id }).orderBy('created_at', 'asc').limit(1000).get(),
-        db.collection('acceptance_records').where({ order_id: order._id }).orderBy('accepted_at', 'asc').limit(1000).get()
+        db.collection('acceptance_records').where({ order_id: order._id }).orderBy('accepted_at', 'asc').limit(1000).get(),
+        db.collection('transfer_records').where({ order_id: order._id }).orderBy('created_at', 'asc').limit(1000).get().catch(() => ({ data: [] }))
       ]);
 
       return ok({
@@ -701,7 +717,8 @@ exports.main = async (event) => {
         id: order._id,
         images: imagesRes.data.map((r) => ({ ...r, id: r._id })),
         repair_records: repairRes.data.map((r) => ({ ...r, id: r._id })),
-        acceptance_records: acceptRes.data.map((r) => ({ ...r, id: r._id }))
+        acceptance_records: acceptRes.data.map((r) => ({ ...r, id: r._id })),
+        transfer_records: (transferRes.data || []).map((r) => ({ ...r, id: r._id }))
       });
     }
 
@@ -734,6 +751,7 @@ exports.main = async (event) => {
               status: 'pending_repair',
               assigned_repairer_id: repairer._id,
               assigned_repairer_name: repairer.real_name || repairer.username || '',
+              assigned_repairer_type: repairer.repair_type || '',
               reviewer_id: user._id,
               reviewer_name: user.real_name || user.username || '',
               review_comment,
@@ -785,6 +803,105 @@ exports.main = async (event) => {
         return fail('工单状态已变化，请刷新后重试');
       }
       await safeNotify(order._id, 'accepted_repair', order.order_no, order.location_name);
+      return ok(null);
+    }
+
+    // 维修人员转交工单给另一位维修人员
+    if (action === 'transfer') {
+      if (user.role !== 'repairer') return fail('无权限执行该操作');
+      const { target_repairer_id, reason = '' } = event;
+      if (!target_repairer_id) return fail('请选择要转交的维修人员');
+      const order = await getOrder(event.id);
+      if (!order) return fail('工单不存在');
+      if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法转交');
+      if (!TRANSFERABLE_STATUSES.includes(order.status)) {
+        return fail(`当前状态为「${statusMap[order.status] || order.status}」，无法转交`);
+      }
+      if (String(target_repairer_id) === String(user._id)) return fail('不能转交给本人');
+
+      let target = null;
+      try {
+        target = (await db.collection('users').doc(target_repairer_id).get()).data;
+      } catch (e) { /* 不存在 */ }
+      if (!target || target.role !== 'repairer') return fail('指定的维修人员不存在或角色不正确');
+      if (target.status !== 'active') return fail('指定的维修人员已被禁用');
+
+      const updateRes = await db.collection('work_orders')
+        .where({ _id: order._id, assigned_repairer_id: user._id, status: order.status })
+        .update({
+          data: {
+            assigned_repairer_id: target._id,
+            assigned_repairer_name: target.real_name || target.username || '',
+            assigned_repairer_type: target.repair_type || '',
+            updated_at: db.serverDate()
+          }
+        });
+      if (!updateRes || !updateRes.stats || updateRes.stats.updated !== 1) {
+        return fail('工单状态已变化，请刷新后重试');
+      }
+      await db.collection('transfer_records').add({
+        data: {
+          order_id: order._id,
+          from_repairer_id: user._id,
+          from_repairer_name: user.real_name || user.username || '',
+          to_repairer_id: target._id,
+          to_repairer_name: target.real_name || target.username || '',
+          reason: String(reason || '').trim(),
+          created_at: db.serverDate()
+        }
+      }).catch((err) => console.warn('[orders] 转交记录写入失败（不影响业务）:', err));
+      await safeNotify(order._id, 'transferred', order.order_no, order.location_name, target._id);
+      return ok(null);
+    }
+
+    // 维修人员挂起工单（当天未修完，稍后继续）
+    if (action === 'suspend') {
+      if (user.role !== 'repairer') return fail('无权限执行该操作');
+      const { reason = '' } = event;
+      const order = await getOrder(event.id);
+      if (!order) return fail('工单不存在');
+      if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法挂起');
+      if (order.status !== 'repairing') {
+        return fail(`当前状态为「${statusMap[order.status] || order.status}」，仅维修中的工单可以挂起`);
+      }
+      const updateRes = await db.collection('work_orders')
+        .where({ _id: order._id, assigned_repairer_id: user._id, status: 'repairing' })
+        .update({
+          data: {
+            status: 'suspended',
+            suspend_reason: String(reason || '').trim(),
+            suspended_at: db.serverDate(),
+            updated_at: db.serverDate()
+          }
+        });
+      if (!updateRes || !updateRes.stats || updateRes.stats.updated !== 1) {
+        return fail('工单状态已变化，请刷新后重试');
+      }
+      return ok(null);
+    }
+
+    // 维修人员恢复挂起的工单继续维修
+    if (action === 'resume') {
+      if (user.role !== 'repairer') return fail('无权限执行该操作');
+      const order = await getOrder(event.id);
+      if (!order) return fail('工单不存在');
+      if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法恢复');
+      if (order.status !== 'suspended') {
+        return fail(`当前状态为「${statusMap[order.status] || order.status}」，仅挂起的工单可以恢复`);
+      }
+      const updateRes = await db.collection('work_orders')
+        .where({ _id: order._id, assigned_repairer_id: user._id, status: 'suspended' })
+        .update({
+          data: {
+            status: 'repairing',
+            suspend_reason: '',
+            suspended_at: null,
+            updated_at: db.serverDate()
+          }
+        });
+      if (!updateRes || !updateRes.stats || updateRes.stats.updated !== 1) {
+        return fail('工单状态已变化，请刷新后重试');
+      }
       return ok(null);
     }
 
@@ -914,7 +1031,7 @@ exports.main = async (event) => {
       if (!order) return fail('工单不存在');
       await db.collection('work_orders').doc(order._id).remove();
       // 按条件批量删除关联数据，避免逐条 remove 的串行开销与 100 条截断
-      for (const c of ['order_images', 'repair_records', 'acceptance_records', 'notifications']) {
+      for (const c of ['order_images', 'repair_records', 'acceptance_records', 'transfer_records', 'notifications']) {
         await db.collection(c).where({ order_id: order._id }).remove()
           .catch((err) => console.warn('[orders] 删除关联数据失败:', c, err));
       }
@@ -977,7 +1094,7 @@ exports.main = async (event) => {
 
 // 拼接工单 CSV：复用 list 的筛选口径（status/keyword/completed_today），全量分页拉取
 async function buildOrdersCsv(event) {
-  const header = ['工单号', '点位名称', '区域', '设备类型', '故障描述', '报修人', '维修人员', '状态', '创建时间', '更新时间'];
+  const header = ['工单号', '点位名称', '区域', '设备类型', '故障描述', '故障原因', '报修人', '维修人员', '状态', '创建时间', '更新时间'];
   const esc = (v) => {
     const s = v === null || v === undefined ? '' : String(v);
     return /[",\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s;
@@ -1004,7 +1121,7 @@ async function buildOrdersCsv(event) {
   rows.forEach((o) => {
     lines.push([
       o.order_no, o.location_name, o.location_area, o.location_device_type,
-      o.fault_description, o.reporter_name, o.assigned_repairer_name,
+      o.fault_description, o.fault_cause, o.reporter_name, o.assigned_repairer_name,
       statusMap[o.status] || o.status,
       fmtCsvTime(o.created_at), fmtCsvTime(o.updated_at)
     ].map(esc).join(','));

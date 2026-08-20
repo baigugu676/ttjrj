@@ -19,7 +19,7 @@ router.get('/', async (req, res, next) => {
   try {
     const { role, keyword: rawKeyword } = req.query;
     // 不下发 openid（微信身份标识仅服务端内部使用）
-    let sql = `SELECT id, username, real_name, role, phone, avatar_url, status, created_at, updated_at
+    let sql = `SELECT id, username, real_name, role, phone, avatar_url, repair_type, status, created_at, updated_at
                FROM users WHERE 1=1`;
     const params = [];
 
@@ -65,7 +65,16 @@ router.post('/', [
       return res.json({ code: 1, message: errors.array()[0].msg });
     }
 
-    const { username, password, real_name = '', role = 'user', phone = null, avatar_url = null } = req.body;
+    const { username, password, real_name = '', role = 'user', phone = null, avatar_url = null, repair_type = null } = req.body;
+
+    // 维修人员分类校验（器材/网络），非维修人员强制置空
+    let finalRepairType = null;
+    if (role === 'repairer') {
+      if (repair_type && !['equipment', 'network'].includes(repair_type)) {
+        return res.json({ code: 1, message: '维修类型不合法（equipment/network）' });
+      }
+      finalRepairType = repair_type || 'equipment';
+    }
 
     // 检查用户名是否重复
     const [exists] = await pool.query(`SELECT id FROM users WHERE username = ?`, [username]);
@@ -77,9 +86,9 @@ router.post('/', [
     const hash = await bcrypt.hash(password, 10);
 
     const [result] = await pool.query(
-      `INSERT INTO users (username, password_hash, real_name, role, phone, avatar_url)
-       VALUES (?, ?, ?, ?, ?, ?)`,
-      [username, hash, real_name, role, phone, avatar_url]
+      `INSERT INTO users (username, password_hash, real_name, role, phone, avatar_url, repair_type)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      [username, hash, real_name, role, phone, avatar_url, finalRepairType]
     );
 
     res.json({ code: 0, message: 'success', data: { id: result.insertId } });
@@ -99,7 +108,7 @@ router.put('/:id', async (req, res, next) => {
       return res.json({ code: 1, message: '用户ID不合法' });
     }
 
-    const { real_name, role, phone, avatar_url, password } = req.body || {};
+    const { real_name, role, phone, avatar_url, password, repair_type } = req.body || {};
 
     // 动态拼接更新字段
     const sets = [];
@@ -130,6 +139,19 @@ router.put('/:id', async (req, res, next) => {
       }
       sets.push('role = ?');
       params.push(role);
+    }
+    if (repair_type !== undefined) {
+      // 只有维修人员保存维修分类；角色变为非维修人员时清空
+      const finalRole = role !== undefined ? role : null;
+      if (finalRole === 'repairer') {
+        if (repair_type && !['equipment', 'network'].includes(repair_type)) {
+          return res.json({ code: 1, message: '维修类型不合法（equipment/network）' });
+        }
+        sets.push('repair_type = ?');
+        params.push(repair_type || 'equipment');
+      } else if (finalRole && finalRole !== 'repairer') {
+        sets.push('repair_type = NULL');
+      }
     }
     if (phone !== undefined) {
       if (phone !== null && !/^1\d{10}$/.test(phone)) {

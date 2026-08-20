@@ -21,6 +21,7 @@ CREATE TABLE users (
   role          ENUM('admin','user','repairer') NOT NULL DEFAULT 'user' COMMENT '角色：admin管理员 / user报修用户 / repairer维修人员',
   phone         VARCHAR(20)  DEFAULT NULL COMMENT '手机号',
   avatar_url    VARCHAR(500) DEFAULT NULL COMMENT '头像图片地址',
+  repair_type   ENUM('equipment','network') DEFAULT NULL COMMENT '维修人员分类：equipment器材维修 / network网络维修',
   status        ENUM('active','disabled') NOT NULL DEFAULT 'active' COMMENT '账号状态：active启用 / disabled禁用',
   created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
@@ -51,10 +52,11 @@ CREATE TABLE work_orders (
   reporter_id           INT UNSIGNED NOT NULL COMMENT '报修人ID（users.id）',
   location_id           INT UNSIGNED NOT NULL COMMENT '故障点位ID（locations.id）',
   fault_description     TEXT NOT NULL COMMENT '故障描述',
+  fault_cause           VARCHAR(100) DEFAULT NULL COMMENT '故障原因（选填，报修时选择）',
   repair_requirements   TEXT DEFAULT NULL COMMENT '维修要求',
-  status                ENUM('pending_review','pending_repair','repairing','pending_accept','completed','rejected','repair_returned')
+  status                ENUM('pending_review','pending_repair','repairing','suspended','pending_accept','completed','rejected','repair_returned')
                         NOT NULL DEFAULT 'pending_review'
-                        COMMENT '状态：待审核/待接单/维修中/待验收/已完成/已驳回/返修退回',
+                        COMMENT '状态：待审核/待接单/维修中/已挂起/待验收/已完成/已驳回/返修退回',
   assigned_repairer_id  INT UNSIGNED DEFAULT NULL COMMENT '指派的维修人员ID（users.id）',
   reviewer_id           INT UNSIGNED DEFAULT NULL COMMENT '审核/验收人ID（users.id）',
   review_comment        TEXT DEFAULT NULL COMMENT '审核意见',
@@ -134,6 +136,24 @@ CREATE TABLE acceptance_records (
   CONSTRAINT fk_ar_order    FOREIGN KEY (order_id)    REFERENCES work_orders (id) ON DELETE CASCADE,
   CONSTRAINT fk_ar_reviewer FOREIGN KEY (reviewer_id) REFERENCES users (id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='验收记录表';
+
+-- ------------------------------------------------------------
+-- 6.5 转交记录表
+-- ------------------------------------------------------------
+CREATE TABLE transfer_records (
+  id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '转交记录ID',
+  order_id          INT UNSIGNED NOT NULL COMMENT '工单ID（work_orders.id）',
+  from_repairer_id  INT UNSIGNED NOT NULL COMMENT '转出维修人员ID（users.id）',
+  to_repairer_id    INT UNSIGNED NOT NULL COMMENT '接收维修人员ID（users.id）',
+  reason            VARCHAR(500) DEFAULT NULL COMMENT '转交原因',
+  created_at        DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '转交时间',
+  KEY idx_order_id (order_id),
+  KEY idx_from_repairer (from_repairer_id),
+  KEY idx_to_repairer (to_repairer_id),
+  CONSTRAINT fk_tr_order          FOREIGN KEY (order_id)         REFERENCES work_orders (id) ON DELETE CASCADE,
+  CONSTRAINT fk_tr_from_repairer  FOREIGN KEY (from_repairer_id) REFERENCES users (id),
+  CONSTRAINT fk_tr_to_repairer    FOREIGN KEY (to_repairer_id)   REFERENCES users (id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COMMENT='工单转交记录表';
 
 -- ------------------------------------------------------------
 -- 7. 通知表

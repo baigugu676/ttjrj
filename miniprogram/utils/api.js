@@ -163,6 +163,9 @@ function resolveTarget(method, url, data) {
     }
     if (sub === 'accept-repair') return { name: 'orders', data: { action: 'acceptRepair', id } };
     if (sub === 'repair') return { name: 'orders', data: Object.assign({ action: 'repair', id }, data) };
+    if (sub === 'transfer') return { name: 'orders', data: Object.assign({ action: 'transfer', id }, data) };
+    if (sub === 'suspend') return { name: 'orders', data: Object.assign({ action: 'suspend', id }, data) };
+    if (sub === 'resume') return { name: 'orders', data: Object.assign({ action: 'resume', id }, data) };
   }
 
   // /locations...
@@ -385,6 +388,10 @@ module.exports = {
   },
   getDashboard(options) {
     return callCloud('orders', { action: 'dashboard', _token: wx.getStorageSync('token') || '' }, options);
+  },
+  // 维修人员选项（admin 派单 / repairer 转交用）：返回启用维修人员及其分类
+  getRepairerOptions(options) {
+    return callCloud('users', { action: 'repairerOptions', _token: wx.getStorageSync('token') || '' }, options);
   },
   upload
 };

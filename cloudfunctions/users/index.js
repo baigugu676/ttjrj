@@ -68,6 +68,8 @@ function safeUser(u) {
 }
 
 const VALID_ROLES = ['admin', 'user', 'repairer'];
+// 维修人员分类：器材维修 / 网络维修（监控故障可能是设备问题，也可能是网络问题）
+const VALID_REPAIR_TYPES = ['equipment', 'network', ''];
 
 async function getActiveAdminCount() {
   const res = await db.collection('users').where({ role: 'admin', status: 'active' }).count();
@@ -82,6 +84,21 @@ exports.main = async (event) => {
 
     const { action } = event || {};
 
+    // 维修人员选项（admin 派单 / repairer 转交时使用）：只返回启用状态的维修人员与分类
+    if (action === 'repairerOptions') {
+      if (!['admin', 'repairer'].includes(user.role)) return fail('无权限执行该操作');
+      const list = await fetchAll(db.collection('users')
+        .where({ role: 'repairer', status: 'active' })
+        .field({ real_name: true, username: true, repair_type: true })
+        .orderBy('created_at', 'asc'));
+      return ok(list.map((u) => ({
+        id: u._id,
+        real_name: u.real_name || u.username || '',
+        username: u.username || '',
+        repair_type: u.repair_type || ''
+      })));
+    }
+
     if (user.role !== 'admin') return fail('无权限执行该操作');
 
     if (action === 'list') {
@@ -91,7 +108,7 @@ exports.main = async (event) => {
       // 角色过滤下沉到数据库，关键字过滤与分页在内存完成
       const userFields = {
         username: true, real_name: true, phone: true, role: true,
-        status: true, avatar_url: true, created_at: true, updated_at: true
+        repair_type: true, status: true, avatar_url: true, created_at: true, updated_at: true
       };
       let all = [];
       if (event.role && VALID_ROLES.includes(event.role)) {
@@ -113,7 +130,7 @@ exports.main = async (event) => {
     }
 
     if (action === 'create') {
-      const { username, password, real_name = '', role = 'user', phone = '' } = event;
+      const { username, password, real_name = '', role = 'user', phone = '', repair_type = '' } = event;
       const uname = username ? String(username).trim() : '';
       if (!uname || uname.length < 3 || uname.length > 30) {
         return fail('用户名长度需在 3-30 之间');
@@ -126,6 +143,10 @@ exports.main = async (event) => {
       }
       if (!VALID_ROLES.includes(role)) {
         return fail('角色不合法');
+      }
+      const repairType = repair_type === undefined ? '' : String(repair_type);
+      if (!VALID_REPAIR_TYPES.includes(repairType)) {
+        return fail('维修类型不合法（equipment/network）');
       }
       if (phone && !/^1\d{10}$/.test(phone)) {
         return fail('手机号格式不正确');
@@ -140,6 +161,8 @@ exports.main = async (event) => {
           openid: '',
           real_name,
           role,
+          // 仅维修人员保存维修分类，其他角色留空
+          repair_type: role === 'repairer' ? repairType : '',
           phone,
           avatar_url: '',
           status: 'active',
@@ -171,6 +194,18 @@ exports.main = async (event) => {
           if (adminCount <= 1) return fail('系统至少保留一名活跃管理员');
         }
         data.role = event.role;
+      }
+      // 角色改为非维修人员时清空维修分类（即使前端未显式传 repair_type）
+      if (event.role !== undefined && event.role !== 'repairer') {
+        data.repair_type = '';
+      }
+      if (event.repair_type !== undefined) {
+        const repairType = event.repair_type === null ? '' : String(event.repair_type);
+        if (!VALID_REPAIR_TYPES.includes(repairType)) {
+          return fail('维修类型不合法（equipment/network）');
+        }
+        // 维修人员保存分类
+        data.repair_type = event.role !== undefined && event.role !== 'repairer' ? '' : repairType;
       }
       if (event.phone !== undefined) {
         if (event.phone !== null && event.phone !== '' && !/^1\d{10}$/.test(event.phone)) {
@@ -238,13 +273,16 @@ exports.main = async (event) => {
         _.or([{ reporter_id: id }, { assigned_repairer_id: id }, { reviewer_id: id }])
       ).limit(1).get();
       if (linkedOrder.data.length) return fail('该用户存在关联的工单等数据，无法删除');
-      const [linkedRepair, linkedAccept, linkedNotify] = await Promise.all([
+      const [linkedRepair, linkedAccept, linkedNotify, linkedTransfer] = await Promise.all([
         db.collection('repair_records').where({ repairer_id: id }).limit(1).get(),
         db.collection('acceptance_records').where({ reviewer_id: id }).limit(1).get(),
-        db.collection('notifications').where({ user_id: id }).limit(1).get()
+        db.collection('notifications').where({ user_id: id }).limit(1).get(),
+        db.collection('transfer_records').where(
+          _.or([{ from_repairer_id: id }, { to_repairer_id: id }])
+        ).limit(1).get().catch(() => ({ data: [] }))
       ]);
-      if (linkedRepair.data.length || linkedAccept.data.length || linkedNotify.data.length) {
-        return fail('该用户存在关联的维修/验收/通知数据，无法删除');
+      if (linkedRepair.data.length || linkedAccept.data.length || linkedNotify.data.length || linkedTransfer.data.length) {
+        return fail('该用户存在关联的维修/验收/通知/转交数据，无法删除');
       }
       await db.collection('users').doc(id).remove();
       return ok(null);

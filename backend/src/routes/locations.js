@@ -8,8 +8,8 @@ const { auth, requireRole } = require('../middleware/auth');
 
 const router = express.Router();
 
-const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
-const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
+const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'suspended', 'pending_accept', 'repair_returned'];
+const REPAIRING_STATUSES = ['repairing', 'suspended', 'pending_accept', 'repair_returned'];
 const STATUS_TEXT = {
   normal: '正常',
   fault: '故障中',

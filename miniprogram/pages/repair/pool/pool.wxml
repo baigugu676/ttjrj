@@ -11,10 +11,36 @@
         <text class="pool-no">{{item.order_no}}</text>
         <text class="pool-time">{{item.created_at_text}}</text>
       </view>
-      <button class="btn btn-primary accept-btn" bindtap="onAction" data-id="{{item.id}}" data-action-type="{{item.action_type}}">{{item.action_text}}</button>
+      <view class="pool-ops">
+        <button class="btn btn-primary accept-btn" bindtap="onAction" data-id="{{item.id}}" data-action-type="{{item.action_type}}">{{item.action_text}}</button>
+        <button class="btn btn-view transfer-btn" bindtap="openTransfer" data-id="{{item.id}}">转交</button>
+      </view>
     </view>
 
     <view class="empty" wx:if="{{!list.length && !loading}}">暂无待处理工单，稍后再来看看</view>
     <view class="load-more" wx:if="{{list.length}}">{{hasMore ? '上拉加载更多...' : '没有更多了'}}</view>
+  </view>
+
+  <!-- 转交弹窗 -->
+  <view class="mask" wx:if="{{showTransfer}}" bindtap="closeTransfer"></view>
+  <view class="modal" wx:if="{{showTransfer}}">
+    <view class="modal-title">转交工单</view>
+    <view class="form-item">
+      <text class="form-label">接收维修人员 <text class="form-required">*</text></text>
+      <picker range="{{repairerNames}}" value="{{transferIndex}}" bindchange="onTransferRepairerChange">
+        <view class="form-input picker {{transferIndex < 0 ? 'placeholder' : ''}}">
+          {{transferIndex < 0 ? (repairerNames.length ? '请选择维修人员' : '暂无其他维修人员') : repairerNames[transferIndex]}} ▾
+        </view>
+      </picker>
+    </view>
+    <view class="form-item">
+      <text class="form-label">转交原因（选填）</text>
+      <textarea class="form-textarea" placeholder="说明转交原因，便于对方接手..." maxlength="200"
+        value="{{transferReason}}" bindinput="onTransferReasonInput"></textarea>
+    </view>
+    <view class="modal-btns">
+      <button class="btn btn-default modal-btn" bindtap="closeTransfer">取消</button>
+      <button class="btn btn-primary modal-btn" bindtap="confirmTransfer" loading="{{transfering}}">确认转交</button>
+    </view>
   </view>
 </view>

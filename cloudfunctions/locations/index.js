@@ -69,8 +69,8 @@ function parseTime(v) {
   return new Date(s).getTime();
 }
 
-const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'pending_accept', 'repair_returned'];
-const REPAIRING_STATUSES = ['repairing', 'pending_accept', 'repair_returned'];
+const OPEN_STATUSES = ['pending_review', 'pending_repair', 'repairing', 'suspended', 'pending_accept', 'repair_returned'];
+const REPAIRING_STATUSES = ['repairing', 'suspended', 'pending_accept', 'repair_returned'];
 const STATUS_TEXT = { normal: '正常', fault: '故障中', repairing: '维修中' };
 const classify = (orders) => {
   const open = orders.filter((o) => OPEN_STATUSES.includes(o.status));
