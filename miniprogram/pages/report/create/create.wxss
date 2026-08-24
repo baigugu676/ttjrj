@@ -24,6 +24,7 @@
   font-size: 28rpx;
 }
 .field-hint { color:#d97706; font-size:24rpx; margin:8rpx 0 12rpx; }
+.fault-cause-input { height: 140rpx; margin-top: 16rpx; }
 .char-count { text-align:right; color:#9ca3af; font-size:22rpx; margin-top:8rpx; }
 .upload-progress { text-align:center; color:#64748b; font-size:23rpx; margin-top:16rpx; }
 .upload-tip {
