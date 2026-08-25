@@ -61,7 +61,11 @@
 }
 .desc {
   font-size: 24rpx;
-  color: #FA5151;
+  color: #999999;
   margin-top: 6rpx;
   line-height: 1.5;
+}
+/* 退回/驳回等异常原因用红色强调，其余补充说明（工单号/维修措施/转交关系）用中性色 */
+.step.reject .desc {
+  color: #FA5151;
 }

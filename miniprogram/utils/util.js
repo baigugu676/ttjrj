@@ -265,16 +265,35 @@ function buildTimelineSteps(order) {
     });
   }
 
-  // 3. 接单环节
+  // 3. 转交环节（维修人员之间流转）：体现「某某转交给某某」
+  // 待接单（pending_repair）时的转交发生在接单之前，其余状态的转交发生在接单之后
+  const transfers = Array.isArray(order.transfer_records) ? order.transfer_records : [];
+  const transferSteps = transfers.map((tr) => {
+    const fromName = tr.from_repairer_name || '维修人员';
+    const toName = tr.to_repairer_name || '维修人员';
+    let desc = fromName + ' 转交给 ' + toName;
+    if (tr.reason) desc += '（' + tr.reason + '）';
+    return {
+      title: '工单转交',
+      time: t(tr.created_at),
+      status: 'done',
+      active: false,
+      desc
+    };
+  });
+
+  // 4. 接单环节
   const acceptDone = ['repairing', 'suspended', 'pending_accept', 'completed'].indexOf(s) >= 0;
+  if (s === 'pending_repair') steps.push(...transferSteps);
   steps.push({
     title: '维修接单',
     time: t(repair.created_at || repair.start_time),
     status: acceptDone ? 'done' : (s === 'pending_repair' ? 'current' : 'todo'),
     active: s === 'pending_repair'
   });
+  if (s !== 'pending_repair') steps.push(...transferSteps);
 
-  // 4. 维修环节
+  // 5. 维修环节
   const repairDone = ['pending_accept', 'completed'].indexOf(s) >= 0;
   steps.push({
     title: '维修完成',
@@ -284,7 +303,7 @@ function buildTimelineSteps(order) {
     desc: repair.repair_action || ''
   });
 
-  // 5. 验收环节
+  // 6. 验收环节
   if (s === 'repair_returned') {
     steps.push({
       title: '验收退回',

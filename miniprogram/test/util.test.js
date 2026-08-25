@@ -48,6 +48,37 @@ test('buildTimelineSteps 免审核工单显示「免审核」步骤', () => {
   assert.equal(steps[2].title, '维修接单');
 });
 
+test('buildTimelineSteps 在接单之后体现「某某转交给某某」', () => {
+  const steps = util.buildTimelineSteps({
+    status: 'repairing', order_no: 'WO20260819001', created_at: '2026-08-19T01:00:00Z',
+    reviewed_at: '2026-08-19T02:00:00Z',
+    repair_records: [{ created_at: '2026-08-19T03:00:00Z' }],
+    transfer_records: [
+      { from_repairer_name: '张三', to_repairer_name: '李四', reason: '忙不过来', created_at: '2026-08-19T03:30:00Z' }
+    ]
+  });
+  const transferStep = steps.find((st) => st.title === '工单转交');
+  assert.ok(transferStep, '应包含转交步骤');
+  assert.equal(transferStep.desc, '张三 转交给 李四（忙不过来）');
+  const acceptIdx = steps.findIndex((st) => st.title === '维修接单');
+  const transferIdx = steps.findIndex((st) => st.title === '工单转交');
+  const repairIdx = steps.findIndex((st) => st.title === '维修完成');
+  assert.ok(acceptIdx < transferIdx && transferIdx < repairIdx, '转交应位于接单与维修完成之间');
+});
+
+test('buildTimelineSteps 待接单状态的转交显示在接单之前', () => {
+  const steps = util.buildTimelineSteps({
+    status: 'pending_repair', order_no: 'WO20260819001', created_at: '2026-08-19T01:00:00Z',
+    transfer_records: [
+      { from_repairer_name: '王五', to_repairer_name: '赵六', reason: '', created_at: '2026-08-19T02:00:00Z' }
+    ]
+  });
+  const acceptIdx = steps.findIndex((st) => st.title === '维修接单');
+  const transferIdx = steps.findIndex((st) => st.title === '工单转交');
+  assert.ok(transferIdx < acceptIdx, '待接单转交应显示在接单之前');
+  assert.equal(steps[transferIdx].desc, '王五 转交给 赵六');
+});
+
 test('监控状态与百分比辅助函数返回稳定文案', () => {
   assert.equal(util.getMonitorStatusText('normal'), '正常');
   assert.equal(util.getMonitorStatusColor('fault'), '#ef4444');
