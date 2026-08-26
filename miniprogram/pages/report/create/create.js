@@ -68,7 +68,7 @@ Page({
   // 加载维修人员列表（管理员报修免审核，提交时需当场指派）
   loadRepairers() {
     api.get('/users', { role: 'repairer', page: 1, pageSize: 100 }, { loading: false }).then((res) => {
-      const list = Array.isArray(res) ? res : ((res && res.list) || []);
+      const list = (Array.isArray(res) ? res : ((res && res.list) || [])).filter((u) => u.status !== 'disabled');
       this.setData({
         repairers: list,
         repairerNames: list.map((u) => util.getRepairerLabel(u))

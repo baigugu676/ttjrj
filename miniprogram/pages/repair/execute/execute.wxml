@@ -129,13 +129,17 @@
   </view>
 
   <!-- OK上线 / 挂起 -->
-  <view class="ok-area">
+  <!-- OK上线 / 挂起：仅维修中或返修退回状态可操作 -->
+  <view class="ok-area" wx:if="{{order.status === 'repairing' || order.status === 'repair_returned'}}">
     <view class="upload-progress" wx:if="{{uploadProgress}}">{{uploadProgress}}</view>
     <view class="ok-btns">
       <button wx:if="{{order.status === 'repairing'}}" class="btn btn-suspend" bindtap="onSuspend"
         loading="{{suspending}}" disabled="{{submitting || suspending}}">⏸️ 挂起</button>
       <button class="btn btn-ok" bindtap="onSubmit" loading="{{submitting}}" disabled="{{suspending || submitting}}">✅ 确认OK上线</button>
     </view>
+  </view>
+  <view class="ok-area" wx:else>
+    <view class="status-tip">当前工单状态：{{statusText}}，请先返回任务列表进行恢复/查看</view>
   </view>
 
   <!-- 自绘确认弹窗（不用 wx.showModal，避免系统弹窗冲突导致提交无法开始） -->

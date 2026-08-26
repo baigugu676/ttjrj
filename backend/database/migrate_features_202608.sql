@@ -18,7 +18,9 @@ ALTER TABLE work_orders
 
 -- 2.1 工单表：挂起草稿（交接维修人员时恢复）
 ALTER TABLE work_orders
-  ADD COLUMN suspend_draft TEXT DEFAULT NULL COMMENT '挂起时保存的维修草稿(JSON)' AFTER reject_reason;
+  ADD COLUMN suspend_draft TEXT DEFAULT NULL COMMENT '挂起时保存的维修草稿(JSON)' AFTER reject_reason,
+  ADD COLUMN suspend_reason VARCHAR(500) DEFAULT NULL COMMENT '挂起原因' AFTER suspend_draft,
+  ADD COLUMN suspended_at DATETIME DEFAULT NULL COMMENT '挂起时间' AFTER suspend_reason;
 
 -- 3. 转交记录表
 CREATE TABLE IF NOT EXISTS transfer_records (

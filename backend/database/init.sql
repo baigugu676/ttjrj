@@ -62,6 +62,8 @@ CREATE TABLE work_orders (
   review_comment        TEXT DEFAULT NULL COMMENT '审核意见',
   reject_reason         TEXT DEFAULT NULL COMMENT '驳回/退回原因',
   suspend_draft         TEXT DEFAULT NULL COMMENT '挂起时保存的维修草稿(JSON)',
+  suspend_reason        VARCHAR(500) DEFAULT NULL COMMENT '挂起原因',
+  suspended_at          DATETIME DEFAULT NULL COMMENT '挂起时间',
   reviewed_at           DATETIME DEFAULT NULL COMMENT '审核时间',
   created_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
   updated_at            DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',

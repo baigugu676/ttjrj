@@ -103,6 +103,12 @@
 .ok-area {
   padding: 40rpx 48rpx 60rpx;
 }
+.status-tip {
+  text-align: center;
+  font-size: 28rpx;
+  color: #999999;
+  padding: 40rpx 0;
+}
 .ok-btns {
   display: flex;
   align-items: stretch;

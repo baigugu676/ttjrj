@@ -353,6 +353,10 @@ Page({
   onSubmit() {
     // 提交进行中或确认弹窗已打开时禁止重复触发（只拦截，不复位——防止在途请求被二次触发）
     if (this.data.submitting || this.data.showConfirm) return;
+    if (!this.data.order || !['repairing', 'repair_returned'].includes(this.data.order.status)) {
+      wx.showToast({ title: '当前工单状态不可提交', icon: 'none' });
+      return;
+    }
     const { beforeImages, afterImages, faultReason, repairAction, gpsLatitude, gpsLongitude } = this.data;
     if (!beforeImages.length) {
       wx.showToast({ title: '请先拍摄维修前照片（至少1张）', icon: 'none' });

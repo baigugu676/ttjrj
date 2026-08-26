@@ -18,5 +18,5 @@ Page({
       .finally(() => this.setData({ loading: false }));
   },
   retry() { this.load(); },
-  openOrder(e) { const id = e.currentTarget.dataset.id; if (id) wx.navigateTo({ url: '/pages/report/detail/detail?id=' + id }); }
+  openOrder(e) { const id = e.currentTarget.dataset.id; if (id) { const role = getApp().getRole(); const url = role === 'admin' ? '/pages/admin/order-detail/order-detail?id=' + id : '/pages/report/detail/detail?id=' + id; wx.navigateTo({ url }); } }
 });

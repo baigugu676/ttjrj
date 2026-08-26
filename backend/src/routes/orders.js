@@ -626,7 +626,7 @@ router.put('/:id/suspend', requireRole('repairer'), async (req, res, next) => {
     if (!Number.isInteger(id) || id <= 0) {
       return res.json({ code: 1, message: '工单ID不合法' });
     }
-    const { draft = null } = req.body || {};
+    const { reason = '', draft = null } = req.body || {};
     const [orders] = await pool.query(
       `SELECT id, assigned_repairer_id, status FROM work_orders WHERE id = ?`,
       [id]
@@ -641,8 +641,8 @@ router.put('/:id/suspend', requireRole('repairer'), async (req, res, next) => {
     }
     const draftJson = draft ? JSON.stringify(draft) : null;
     const [updateRes] = await pool.query(
-      `UPDATE work_orders SET status = 'suspended', suspend_draft = ? WHERE id = ? AND status = 'repairing' AND assigned_repairer_id = ?`,
-      [draftJson, id, req.user.id]
+      `UPDATE work_orders SET status = 'suspended', suspend_reason = ?, suspended_at = NOW(), suspend_draft = ? WHERE id = ? AND status = 'repairing' AND assigned_repairer_id = ?`,
+      [String(reason || '').trim(), draftJson, id, req.user.id]
     );
     if (updateRes.affectedRows === 0) {
       return res.json({ code: 1, message: '工单状态已变化，请刷新后重试' });
@@ -676,7 +676,7 @@ router.put('/:id/resume', requireRole('repairer'), async (req, res, next) => {
       return res.json({ code: 1, message: `当前状态为「${statusMap[order.status]}」，仅挂起的工单可以恢复` });
     }
     const [updateRes] = await pool.query(
-      `UPDATE work_orders SET status = 'repairing' WHERE id = ? AND status = 'suspended' AND assigned_repairer_id = ?`,
+      `UPDATE work_orders SET status = 'repairing', suspend_reason = '', suspended_at = NULL WHERE id = ? AND status = 'suspended' AND assigned_repairer_id = ?`,
       [id, req.user.id]
     );
     if (updateRes.affectedRows === 0) {
@@ -764,7 +764,7 @@ router.put('/:id/repair', requireRole('repairer'), async (req, res, next) => {
       await conn.beginTransaction();
 
       const [updateRes] = await conn.query(
-        `UPDATE work_orders SET status = ?, suspend_draft = NULL WHERE id = ? AND status IN ('repairing', 'repair_returned')`,
+        `UPDATE work_orders SET status = ?, suspend_draft = NULL, suspend_reason = '', suspended_at = NULL WHERE id = ? AND status IN ('repairing', 'repair_returned')`,
         [nextStatus, id]
       );
       if (updateRes.affectedRows === 0) {
