@@ -857,7 +857,7 @@ exports.main = async (event) => {
     // 维修人员挂起工单（当天未修完，稍后继续）
     if (action === 'suspend') {
       if (user.role !== 'repairer') return fail('无权限执行该操作');
-      const { reason = '' } = event;
+      const { reason = '', draft = null } = event;
       const order = await getOrder(event.id);
       if (!order) return fail('工单不存在');
       if (order.assigned_repairer_id !== user._id) return fail('该工单未指派给您，无法挂起');
@@ -871,6 +871,7 @@ exports.main = async (event) => {
             status: 'suspended',
             suspend_reason: String(reason || '').trim(),
             suspended_at: db.serverDate(),
+            suspend_draft: draft || null,
             updated_at: db.serverDate()
           }
         });
@@ -944,7 +945,7 @@ exports.main = async (event) => {
       // 先条件更新状态（原子防重），再写维修记录；记录写失败则回滚状态
       const updateRes = await db.collection('work_orders')
         .where({ _id: order._id, status: _.in(['repairing', 'repair_returned']) })
-        .update({ data: { status: 'pending_accept', updated_at: db.serverDate() } });
+        .update({ data: { status: 'pending_accept', suspend_draft: null, updated_at: db.serverDate() } });
       if (!updateRes || !updateRes.stats || updateRes.stats.updated !== 1) {
         return fail('工单状态已变化，请刷新后重试');
       }

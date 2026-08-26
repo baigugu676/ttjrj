@@ -232,7 +232,7 @@ Page({
       setTimeout(() => {
         wx.setStorageSync('listStatus', this.skipReviewStatus());
         wx.switchTab({ url: '/pages/report/list/list' });
-      }, 1200);
+      }, 300);
     }).catch((err) => {
       wx.hideLoading();
       this.setData({ submitting: false });

@@ -16,6 +16,10 @@ ALTER TABLE work_orders
     NOT NULL DEFAULT 'pending_review'
     COMMENT '状态：待审核/待接单/维修中/已挂起/待验收/已完成/已驳回/返修退回';
 
+-- 2.1 工单表：挂起草稿（交接维修人员时恢复）
+ALTER TABLE work_orders
+  ADD COLUMN suspend_draft TEXT DEFAULT NULL COMMENT '挂起时保存的维修草稿(JSON)' AFTER reject_reason;
+
 -- 3. 转交记录表
 CREATE TABLE IF NOT EXISTS transfer_records (
   id                INT UNSIGNED AUTO_INCREMENT PRIMARY KEY COMMENT '转交记录ID',

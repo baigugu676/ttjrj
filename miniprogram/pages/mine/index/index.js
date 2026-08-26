@@ -45,17 +45,8 @@ Page({
     }
   },
 
-  // 退出登录
+  // 退出登录：一键退出，减少确认弹窗带来的切换等待
   onLogout() {
-    wx.showModal({
-      title: '退出登录',
-      content: '确认退出当前账号？',
-      confirmColor: '#FA5151',
-      success: (res) => {
-        if (res.confirm) {
-          getApp().logout();
-        }
-      }
-    });
+    getApp().logout();
   }
 });

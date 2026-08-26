@@ -6,6 +6,35 @@
 const api = require('../../../utils/api.js');
 const util = require('../../../utils/util.js');
 
+const DRAFT_PREFIX = 'repair_execute_draft_';
+
+function draftKey(id) {
+  let uid = '';
+  try {
+    const app = getApp();
+    uid = (app && app.globalData && app.globalData.userInfo && app.globalData.userInfo.id) || '';
+  } catch (e) {
+    // 忽略获取用户信息异常
+  }
+  return DRAFT_PREFIX + uid + '_' + id;
+}
+
+function readDraft(id) {
+  try {
+    return wx.getStorageSync(draftKey(id)) || null;
+  } catch (e) {
+    return null;
+  }
+}
+
+function clearDraft(id) {
+  try {
+    wx.removeStorageSync(draftKey(id));
+  } catch (e) {
+    // 忽略缓存清理异常
+  }
+}
+
 Page({
   data: {
     id: '',
@@ -24,6 +53,7 @@ Page({
     faultReason: '',      // 故障原因
     repairAction: '',     // 维修措施
     submitting: false,    // 是否提交中
+    suspending: false,    // 是否挂起中
     loadError: false,     // 工单加载失败
     uploadProgress: '',   // 照片上传进度提示
     showConfirm: false    // 自绘确认弹窗是否显示
@@ -53,8 +83,11 @@ Page({
       this.setData({
         order,
         statusText: util.getStatusText(order.status),
-        reportImages: images.report
+        reportImages: images.report,
+        beforeImages: images.before,
+        afterImages: images.after
       });
+      this.restoreDraft(order.suspend_draft);
       wx.setNavigationBarTitle({
         title: order.order_no ? ('维修 ' + order.order_no) : '维修执行'
       });
@@ -62,10 +95,19 @@ Page({
       // 仅尝试一次：接单失败后重载详情不再重试，避免失败→重载→再失败的循环
       if (order.status === 'pending_repair' && !this._autoAccepted) {
         this._autoAccepted = true;
-        await this.autoAcceptRepair();
+        const accepted = await this.autoAcceptRepair();
+        // 自动接单成功后本地状态同步为维修中，确保挂起按钮可用
+        if (accepted && this.data.order && this.data.order.status === 'pending_repair') {
+          this.setData({
+            'order.status': 'repairing',
+            statusText: util.getStatusText('repairing')
+          });
+        }
       }
-      // 进入页面自动尝试定位
-      this.getLocation();
+      // 进入页面自动尝试定位；已有挂起草稿坐标时保留原坐标，避免覆盖已填内容
+      if (!this.data.gpsLatitude || !this.data.gpsLongitude) {
+        this.getLocation();
+      }
     }).catch((err) => {
       console.error('[execute] 加载工单失败:', err);
       // 失败可重试，不永久停留在加载中
@@ -73,16 +115,130 @@ Page({
     });
   },
 
+  // 恢复挂起草稿：优先使用服务端保存的草稿（交接给其他维修人员也能恢复），其次本地缓存
+  restoreDraft(serverDraft) {
+    const id = this.data.id;
+    if (!id) return;
+    let draft = serverDraft || null;
+    if (typeof draft === 'string' && draft) {
+      try {
+        draft = JSON.parse(draft);
+      } catch (e) {
+        draft = null;
+      }
+    }
+    if (!draft) draft = readDraft(id);
+    if (!draft) return;
+    this.setData({
+      beforeImages: draft.beforeImages || [],
+      afterImages: draft.afterImages || [],
+      repairDate: draft.repairDate || this.data.repairDate,
+      repairTime: draft.repairTime || this.data.repairTime,
+      gpsText: draft.gpsText || (draft.gpsLatitude && draft.gpsLongitude ? '纬度 ' + Number(draft.gpsLatitude).toFixed(5) + '°，经度 ' + Number(draft.gpsLongitude).toFixed(5) + '°' : ''),
+      gpsLatitude: draft.gpsLatitude || "",
+      gpsLongitude: draft.gpsLongitude || "",
+      locationAddress: draft.locationAddress || "",
+      faultReason: draft.faultReason || "",
+      repairAction: draft.repairAction || ""
+    });
+  },
+
+  // 收集当前维修表单内容（用于本地缓存和提交到服务端）
+  collectDraft() {
+    return {
+      beforeImages: this.data.beforeImages,
+      afterImages: this.data.afterImages,
+      repairDate: this.data.repairDate,
+      repairTime: this.data.repairTime,
+      gpsText: this.data.gpsText,
+      gpsLatitude: this.data.gpsLatitude,
+      gpsLongitude: this.data.gpsLongitude,
+      locationAddress: this.data.locationAddress,
+      faultReason: this.data.faultReason,
+      repairAction: this.data.repairAction
+    };
+  },
+
+  // 保存本地挂起草稿（同时保留一份在当前设备，方便离线/容错）
+  saveDraft() {
+    const id = this.data.id;
+    if (!id) return;
+    try {
+      wx.setStorageSync(draftKey(id), Object.assign({ savedAt: Date.now() }, this.collectDraft()));
+    } catch (e) {
+      console.error("[execute] 保存挂起草稿失败:", e);
+    }
+  },
+
+  // 上传挂起草稿中的本地照片，返回可跨设备恢复的云文件ID
+  async uploadDraftImages() {
+    const uploadOne = (p, imageType) => {
+      if (p && String(p).indexOf('cloud://') === 0) return Promise.resolve({ fileID: p });
+      return api.upload(p, { order_id: this.data.id, image_type: imageType }, { silent: true, loading: false });
+    };
+    const [beforeRes, afterRes] = await Promise.all([
+      Promise.all((this.data.beforeImages || []).map((p) => uploadOne(p, 'repair_before'))),
+      Promise.all((this.data.afterImages || []).map((p) => uploadOne(p, 'repair_after')))
+    ]);
+    return {
+      beforeImages: beforeRes.map((r) => (r && (r.fileID || r.url)) || ''),
+      afterImages: afterRes.map((r) => (r && (r.fileID || r.url)) || '')
+    };
+  },
+
+  // 挂起当前维修：先上传照片到云存储，再保存草稿到工单，确保交接维修人员也能恢复
+  async onSuspend() {
+    if (this.data.submitting || this.data.suspending || this.data.showConfirm) return;
+    const { order, id } = this.data;
+    if (!order || order.status !== 'repairing') {
+      wx.showToast({ title: '当前状态不可挂起', icon: 'none' });
+      return;
+    }
+    this.saveDraft();
+    this.setData({ suspending: true });
+    wx.showLoading({ title: '正在保存挂起内容...', mask: true });
+    try {
+      const uploaded = await this.uploadDraftImages();
+      // 本地照片已转为云文件ID，后续提交/再次挂起不会重复上传
+      this.setData({
+        beforeImages: uploaded.beforeImages,
+        afterImages: uploaded.afterImages
+      });
+      this.saveDraft();
+      const draft = Object.assign({}, this.collectDraft(), uploaded);
+      await api.put('/orders/' + id + '/suspend', { reason: '', draft }, { loading: false, silent: true, timeoutMs: 20000 });
+      wx.hideLoading();
+      wx.showToast({ title: '已挂起，内容已保留', icon: 'success' });
+      setTimeout(() => this.backToList(), 300);
+    } catch (err) {
+      wx.hideLoading();
+      this.setData({ suspending: false });
+      wx.showToast({ title: (err && err.message) || '挂起失败，请重试', icon: 'none' });
+    }
+  },
+
+  // 返回任务列表（优先返回上一页，否则直达维修任务）
+  backToList() {
+    const pages = getCurrentPages();
+    if (pages.length > 1) {
+      wx.navigateBack();
+    } else {
+      wx.redirectTo({ url: '/pages/repair/mytasks/mytasks' });
+    }
+  },
+
   // 自动接单（await 确保接单完成后再允许提交；失败则提示并重载工单状态）
   async autoAcceptRepair() {
     try {
       await api.put('/orders/' + this.data.id + '/accept-repair', {}, { silent: true });
+      return true;
     } catch (err) {
       // 接单失败：重载工单详情以确认当前实际状态（如已被接单/流转），
       // 避免用户填完表单后提交时才被告知状态不符
       const msg = (err && err.message) || '接单失败';
       wx.showToast({ title: msg + '，已刷新工单状态', icon: 'none', duration: 2500 });
       this.loadOrder();
+      return false;
     }
   },
 
@@ -273,16 +429,9 @@ Page({
         repair_action: this.data.repairAction.trim()
       }, { loading: false, silent: true, timeoutMs: 20000 });
       wx.hideLoading();
+      clearDraft(this.data.id);
       wx.showToast({ title: 'OK上线成功', icon: 'success' });
-      setTimeout(() => {
-        // 跳转回任务列表
-        const pages = getCurrentPages();
-        if (pages.length > 1) {
-          wx.navigateBack();
-        } else {
-          wx.redirectTo({ url: '/pages/repair/mytasks/mytasks' });
-        }
-      }, 1200);
+      setTimeout(() => this.backToList(), 300);
     } catch (err) {
       wx.hideLoading();
       this.setData({ submitting: false, uploadProgress: '' });
@@ -291,10 +440,15 @@ Page({
   },
 
   // 上传一组照片（保留原始错误信息，方便排查；onProgress 每完成一张回调一次）
+  // 已上传的 cloud:// 文件直接跳过，避免交接恢复后重复上传
   uploadImages(paths, imageType, onProgress) {
     if (!paths || !paths.length) return Promise.resolve([]);
-    const tasks = paths.map((p) =>
-      api.upload(p, { order_id: this.data.id, image_type: imageType }, { silent: true, loading: false })
+    const tasks = paths.map((p) => {
+      if (p && String(p).indexOf('cloud://') === 0) {
+        if (typeof onProgress === 'function') onProgress();
+        return Promise.resolve({ fileID: p });
+      }
+      return api.upload(p, { order_id: this.data.id, image_type: imageType }, { silent: true, loading: false })
         .then((res) => {
           if (typeof onProgress === 'function') onProgress();
           return res;
@@ -302,8 +456,8 @@ Page({
         .catch((err) => {
           const rawMsg = (err && (err.message || err.errMsg)) || '上传失败';
           throw new Error('照片上传失败：' + rawMsg);
-        })
-    );
+        });
+    });
     return Promise.all(tasks);
   }
 });

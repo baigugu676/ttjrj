@@ -30,10 +30,21 @@ Page({
     this.loadAll();
   },
 
-  // 根据角色加载首页数据
+  getHomeDonutSize() {
+    const info = wx.getSystemInfoSync();
+    return Math.max(64, Math.round((info.windowWidth || 375) * 160 / 750));
+  },
+
+  // 根据角色加载首页数据：有 30 秒缓存时先秒开渲染，再后台静默刷新
   loadAll() {
-    this.setData({ loading: true, loadError: '' });
     const role = this.data.role;
+    const cached = this.getCachedDashboard(role);
+    if (cached) {
+      this.applyDashboard(cached, role);
+      this.setData({ loading: false, loadError: "" });
+    } else {
+      this.setData({ loading: true, loadError: "" });
+    }
     if (role === 'user') {
       this.loadUserHome();
     } else if (role === 'repairer') {
@@ -43,48 +54,73 @@ Page({
     }
   },
 
-  getHomeDonutSize() {
-    const info = wx.getSystemInfoSync();
-    return Math.max(64, Math.round((info.windowWidth || 375) * 160 / 750));
+  // 首页看板缓存（页面实例内 30 秒有效，切 tab 返回时先展示旧数据）
+  getCachedDashboard(role) {
+    const cache = this._dashboardCache;
+    if (!cache || cache.role !== role) return null;
+    if (Date.now() - cache.time > 30000) return null;
+    return cache.data;
+  },
+
+  setCachedDashboard(role, data) {
+    this._dashboardCache = { role, time: Date.now(), data };
+  },
+
+  applyDashboard(dashboard, role) {
+    if (!dashboard) return;
+    if (role === 'user') {
+      this.setData({
+        stats: dashboard.stats || {},
+        recentOrders: dashboard.recentOrders || []
+      });
+    } else if (role === 'repairer') {
+      this.setData({
+        stats: dashboard.stats || {},
+        poolOrders: dashboard.poolOrders || [],
+        repairingOrders: dashboard.repairingOrders || []
+      });
+    } else {
+      const monitorOv = dashboard.monitorOverview;
+      this.setData({
+        stats: dashboard.stats || {},
+        latestOrders: dashboard.latestOrders || [],
+        monitorOverview: monitorOv || null,
+        monitorRateText: util.formatPercent(monitorOv && monitorOv.normalRate)
+      });
+      if (monitorOv) setTimeout(() => this.drawHomeMonitorDonut(), 100);
+    }
   },
 
   // ===== 报修用户首页 =====
   loadUserHome() {
     api.getDashboard({ loading: false, silent: true }).then((dashboard) => {
-      this.setData({
-        stats: (dashboard && dashboard.stats) || {},
-        recentOrders: (dashboard && dashboard.recentOrders) || []
-      });
+      this.setCachedDashboard('user', dashboard);
+      this.applyDashboard(dashboard, 'user');
     }).catch((err) => this.handleLoadError(err)).finally(() => this.finishLoad());
   },
 
   // ===== 维修人员首页 =====
   loadRepairerHome() {
     api.getDashboard({ loading: false, silent: true }).then((dashboard) => {
-      this.setData({
-        stats: (dashboard && dashboard.stats) || {},
-        poolOrders: (dashboard && dashboard.poolOrders) || [],
-        repairingOrders: (dashboard && dashboard.repairingOrders) || []
-      });
+      this.setCachedDashboard('repairer', dashboard);
+      this.applyDashboard(dashboard, 'repairer');
     }).catch((err) => this.handleLoadError(err)).finally(() => this.finishLoad());
   },
 
   // ===== 管理员首页 =====
   loadAdminHome() {
     api.getDashboard({ loading: false, silent: true }).then((dashboard) => {
-      const monitorOv = dashboard && dashboard.monitorOverview;
-      this.setData({
-        stats: (dashboard && dashboard.stats) || {},
-        latestOrders: (dashboard && dashboard.latestOrders) || [],
-        monitorOverview: monitorOv || null,
-        monitorRateText: util.formatPercent(monitorOv && monitorOv.normalRate)
-      });
-      if (monitorOv) setTimeout(() => this.drawHomeMonitorDonut(), 100);
+      this.setCachedDashboard('admin', dashboard);
+      this.applyDashboard(dashboard, 'admin');
     }).catch((err) => this.handleLoadError(err)).finally(() => this.finishLoad());
   },
 
   finishLoad() { this.setData({ loading: false }); wx.stopPullDownRefresh(); },
-  handleLoadError(err) { console.error('[index] 首页加载失败:', err); this.setData({ loadError: (err && err.message) || '首页数据加载失败，请重试' }); },
+  handleLoadError(err) {
+    console.error('[index] 首页加载失败:', err);
+    if (this.getCachedDashboard(this.data.role)) return;
+    this.setData({ loadError: (err && err.message) || '首页数据加载失败，请重试' });
+  },
   retryLoad() { this.loadAll(); },
   onPullDownRefresh() { this.loadAll(); },
 

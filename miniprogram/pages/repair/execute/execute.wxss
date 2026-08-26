@@ -103,6 +103,28 @@
 .ok-area {
   padding: 40rpx 48rpx 60rpx;
 }
+.ok-btns {
+  display: flex;
+  align-items: stretch;
+}
+.btn-suspend {
+  flex: 0 0 220rpx;
+  height: 116rpx;
+  line-height: 116rpx;
+  border-radius: 20rpx;
+  background: #FFFFFF;
+  color: #666666;
+  border: 2rpx solid #E5E5E5;
+  font-size: 30rpx;
+  padding: 0;
+  margin: 0 20rpx 0 0;
+  box-sizing: border-box;
+  box-shadow: none;
+}
+.ok-btns .btn-ok {
+  flex: 1;
+  width: auto;
+}
 
 /* 照片上传进度提示 */
 .upload-progress {
