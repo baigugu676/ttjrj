@@ -31,7 +31,7 @@ Page({
       { value: 'equipment', label: '器材维修' },
       { value: 'network', label: '网络维修' }
     ],
-    form: { id: '', username: '', password: '', real_name: '', phone: '', roleIndex: 0, repairTypeIndex: 0 }
+    form: { id: '', username: '', password: '', phone: '', roleIndex: 0, repairTypeIndex: 0 }
   },
 
   onLoad() {
@@ -122,7 +122,7 @@ Page({
     this.setData({
       showModal: true,
       modalTitle: '添加用户',
-      form: { id: '', username: '', password: '', real_name: '', phone: '', roleIndex: 0, repairTypeIndex: 0 }
+      form: { id: '', username: '', password: '', phone: '', roleIndex: 0, repairTypeIndex: 0 }
     });
   },
 
@@ -139,7 +139,6 @@ Page({
         id: user.id,
         username: user.username || '',
         password: '',
-        real_name: user.real_name || '',
         phone: user.phone || '',
         roleIndex,
         repairTypeIndex
@@ -176,14 +175,9 @@ Page({
       wx.showToast({ title: '请输入密码', icon: 'none' });
       return;
     }
-    if (!form.real_name.trim()) {
-      wx.showToast({ title: '请输入姓名', icon: 'none' });
-      return;
-    }
     const role = this.data.roleOptions[form.roleIndex].value;
     const data = {
       username: form.username.trim(),
-      real_name: form.real_name.trim(),
       phone: form.phone.trim(),
       role
     };
