@@ -712,8 +712,19 @@ exports.main = async (event) => {
         db.collection('transfer_records').where({ order_id: order._id }).orderBy('created_at', 'asc').limit(1000).get().catch(() => ({ data: [] }))
       ]);
 
+      // 挂起草稿可能是 JSON 字符串（新）或对象（历史数据），统一解析为对象返回
+      let suspendDraft = order.suspend_draft;
+      if (typeof suspendDraft === 'string' && suspendDraft) {
+        try {
+          suspendDraft = JSON.parse(suspendDraft);
+        } catch (e) {
+          suspendDraft = null;
+        }
+      }
+
       return ok({
         ...order,
+        suspend_draft: suspendDraft,
         id: order._id,
         images: imagesRes.data.map((r) => ({ ...r, id: r._id })),
         repair_records: repairRes.data.map((r) => ({ ...r, id: r._id })),
@@ -871,7 +882,8 @@ exports.main = async (event) => {
             status: 'suspended',
             suspend_reason: String(reason || '').trim(),
             suspended_at: db.serverDate(),
-            suspend_draft: draft || null,
+            // 草稿统一存 JSON 字符串，避免云数据库嵌套对象在跨文档更新/转交后被丢弃
+            suspend_draft: draft ? (typeof draft === 'string' ? draft : JSON.stringify(draft)) : null,
             updated_at: db.serverDate()
           }
         });
