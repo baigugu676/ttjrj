@@ -293,13 +293,24 @@ function buildTimelineSteps(order) {
   });
   if (s !== 'pending_repair') steps.push(...transferSteps);
 
+  // 4.5 挂起环节：维修中挂起时展示挂起原因（未填写原因时给默认文案）
+  if (s === 'suspended' || order.suspend_reason || order.suspended_at) {
+    steps.push({
+      title: '已挂起',
+      time: t(order.suspended_at),
+      status: s === 'suspended' ? 'current' : 'done',
+      active: s === 'suspended',
+      desc: order.suspend_reason || '未填写挂起原因'
+    });
+  }
+
   // 5. 维修环节
   const repairDone = ['pending_accept', 'completed'].indexOf(s) >= 0;
   steps.push({
     title: '维修完成',
     time: t(repair.end_time || repair.updated_at),
-    status: repairDone ? 'done' : ((s === 'repairing' || s === 'suspended') ? 'current' : 'todo'),
-    active: s === 'repairing' || s === 'suspended',
+    status: repairDone ? 'done' : (s === 'repairing' ? 'current' : 'todo'),
+    active: s === 'repairing',
     desc: repair.repair_action || ''
   });
 

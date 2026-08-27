@@ -15,6 +15,9 @@
   <view class="list">
     <view class="task-item" wx:for="{{list}}" wx:key="id">
       <order-card order="{{item}}" bind:select="goDetail" />
+      <view class="suspend-reason" wx:if="{{tab === 'suspended' && item.suspend_reason}}">
+        挂起原因：{{item.suspend_reason}}
+      </view>
       <view class="task-ops">
         <!-- 维修中：进入维修 / 转交 / 挂起 -->
         <block wx:if="{{tab === 'repairing'}}">

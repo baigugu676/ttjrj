@@ -38,6 +38,19 @@
     </view>
   </view>
 
+  <!-- 挂起信息 -->
+  <view class="card" wx:if="{{order.status === 'suspended'}}">
+    <view class="card-title">挂起信息</view>
+    <view class="info-row">
+      <text class="label">挂起原因</text>
+      <text class="value">{{order.suspend_reason || '未填写'}}</text>
+    </view>
+    <view class="info-row" wx:if="{{order.suspended_at_text}}">
+      <text class="label">挂起时间</text>
+      <text class="value">{{order.suspended_at_text}}</text>
+    </view>
+  </view>
+
   <!-- 维修前后照片对比 -->
   <view class="card" wx:if="{{beforeImages.length || afterImages.length}}">
     <view class="card-title">维修前后照片对比</view>

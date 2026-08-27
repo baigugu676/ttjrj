@@ -27,6 +27,16 @@
 .task-item {
   position: relative;
 }
+/* 挂起原因提示条 */
+.suspend-reason {
+  margin: -12rpx 0 16rpx;
+  padding: 14rpx 20rpx;
+  background: rgba(144, 147, 153, 0.12);
+  border-radius: 10rpx;
+  font-size: 24rpx;
+  color: #666666;
+  line-height: 1.5;
+}
 .enter-btn {
   height: 72rpx;
   line-height: 72rpx;

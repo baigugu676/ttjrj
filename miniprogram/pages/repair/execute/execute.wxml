@@ -1,6 +1,9 @@
 <!-- 维修执行页（核心页面）：报修信息 → 维修前拍照 → 维修时间 → GPS定位 → 故障原因 → 维修措施 → 维修后拍照 → OK上线 -->
 <view class="page" wx:if="{{order}}">
 
+  <!-- 已恢复挂起内容提示 -->
+  <view class="restore-tip" wx:if="{{restoredDraft}}">已恢复上次挂起前保存的维修内容，可继续填写后提交</view>
+
   <!-- 报修信息区 -->
   <view class="card">
     <view class="card-title">报修信息</view>

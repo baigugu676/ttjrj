@@ -56,7 +56,8 @@ Page({
     suspending: false,    // 是否挂起中
     loadError: false,     // 工单加载失败
     uploadProgress: '',   // 照片上传进度提示
-    showConfirm: false    // 自绘确认弹窗是否显示
+    showConfirm: false,   // 自绘确认弹窗是否显示
+    restoredDraft: false  // 是否已恢复上次挂起保存的维修内容
   },
 
   onLoad(options) {
@@ -139,7 +140,8 @@ Page({
       gpsLongitude: draft.gpsLongitude || "",
       locationAddress: draft.locationAddress || "",
       faultReason: draft.faultReason || "",
-      repairAction: draft.repairAction || ""
+      repairAction: draft.repairAction || "",
+      restoredDraft: true
     });
   },
 

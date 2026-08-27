@@ -79,6 +79,31 @@ test('buildTimelineSteps 待接单状态的转交显示在接单之前', () => {
   assert.equal(steps[transferIdx].desc, '王五 转交给 赵六');
 });
 
+test('buildTimelineSteps 挂起状态显示「已挂起」及挂起原因', () => {
+  const steps = util.buildTimelineSteps({
+    status: 'suspended', order_no: 'WO20260819001', created_at: '2026-08-19T01:00:00Z',
+    reviewed_at: '2026-08-19T02:00:00Z',
+    suspended_at: '2026-08-19T03:00:00Z',
+    suspend_reason: '等待配件'
+  });
+  const suspendStep = steps.find((st) => st.title === '已挂起');
+  assert.ok(suspendStep, '应包含挂起步骤');
+  assert.equal(suspendStep.status, 'current');
+  assert.equal(suspendStep.desc, '等待配件');
+  // 挂起时「维修完成」不应是当前节点
+  const repairStep = steps.find((st) => st.title === '维修完成');
+  assert.equal(repairStep.status, 'todo');
+});
+
+test('buildTimelineSteps 挂起未填原因时给默认文案', () => {
+  const steps = util.buildTimelineSteps({
+    status: 'suspended', order_no: 'WO20260819001', created_at: '2026-08-19T01:00:00Z',
+    reviewed_at: '2026-08-19T02:00:00Z'
+  });
+  const suspendStep = steps.find((st) => st.title === '已挂起');
+  assert.equal(suspendStep.desc, '未填写挂起原因');
+});
+
 test('监控状态与百分比辅助函数返回稳定文案', () => {
   assert.equal(util.getMonitorStatusText('normal'), '正常');
   assert.equal(util.getMonitorStatusColor('fault'), '#ef4444');
