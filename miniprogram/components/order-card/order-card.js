@@ -2,6 +2,10 @@
 const util = require('../../utils/util.js');
 
 Component({
+  options: {
+    // 允许 app.wxss 全局样式（如 status-tag 状态色）作用到组件内部节点
+    styleIsolation: 'apply-shared'
+  },
   properties: {
     // 工单对象：{ id, order_no, location_name, fault_description, status, created_at }
     order: {

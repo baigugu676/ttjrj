@@ -32,7 +32,6 @@ Page({
       // 为字段做展示兜底
       if (order) {
         order.created_at_text = util.formatTime(order.created_at || order.createdAt);
-        order.reviewed_at_text = util.formatTime(order.reviewed_at);
         order.suspended_at_text = util.formatTime(order.suspended_at);
         order.assigned_repairer_type_text = order.assigned_repairer_type
           ? util.getRepairTypeText(order.assigned_repairer_type) : '';

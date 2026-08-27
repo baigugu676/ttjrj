@@ -29,13 +29,6 @@
     </view>
   </view>
 
-  <!-- 驳回提醒（醒目展示驳回原因，避免被忽略） -->
-  <view class="reject-banner" wx:if="{{order.status === 'rejected'}}">
-    <view class="reject-banner-title">⚠️ 工单已被驳回</view>
-    <view class="reject-banner-reason" wx:if="{{order.reject_reason}}">驳回原因：{{order.reject_reason}}</view>
-    <view class="reject-banner-time" wx:if="{{order.reviewed_at_text}}">驳回时间：{{order.reviewed_at_text}}</view>
-  </view>
-
   <!-- 挂起信息（未开始维修即挂起时，重点展示挂起原因） -->
   <view class="card" wx:if="{{order.status === 'suspended'}}">
     <view class="card-title">挂起信息</view>
